@@ -2,17 +2,41 @@ import { useState, useCallback } from 'react';
 
 export interface Message {
   role: 'user' | 'assistant';
-  content: string;
+  content: string | MessageContent[];
+}
+
+export interface MessageContent {
+  type: 'text' | 'image_url';
+  text?: string;
+  image_url?: { url: string };
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+
+// Helper to get text content from a message
+export function getMessageText(message: Message): string {
+  if (typeof message.content === 'string') return message.content;
+  const textPart = message.content.find(p => p.type === 'text');
+  return textPart?.text || '';
+}
 
 export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const sendMessage = useCallback(async (content: string) => {
-    const userMessage: Message = { role: 'user', content };
+  const sendMessage = useCallback(async (content: string, imageBase64?: string) => {
+    // Build message content
+    let messageContent: string | MessageContent[];
+    if (imageBase64) {
+      messageContent = [
+        { type: 'text', text: content || 'What plugin should I create based on this image?' },
+        { type: 'image_url', image_url: { url: imageBase64 } }
+      ];
+    } else {
+      messageContent = content;
+    }
+
+    const userMessage: Message = { role: 'user', content: messageContent };
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
 
@@ -120,6 +144,10 @@ export function useChat() {
     setMessages(prev => [...prev, message]);
   }, []);
 
+  const setAllMessages = useCallback((newMessages: Message[]) => {
+    setMessages(newMessages);
+  }, []);
+
   const clearMessages = useCallback(() => {
     setMessages([]);
   }, []);
@@ -129,6 +157,7 @@ export function useChat() {
     isLoading,
     sendMessage,
     addMessage,
+    setAllMessages,
     clearMessages,
   };
 }

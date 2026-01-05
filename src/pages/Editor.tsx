@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { useLocation, Link } from "react-router-dom";
-import { useChat, Message } from "@/hooks/useChat";
+import { useChat, Message, getMessageText } from "@/hooks/useChat";
+import { useProjectHistory, Project } from "@/hooks/useProjectHistory";
 import { EditorChatPanel } from "@/components/EditorChatPanel";
 import { FileTree } from "@/components/FileTree";
 import { CodeViewer } from "@/components/CodeViewer";
 import { GitHubCompileButton } from "@/components/GitHubCompileButton";
+import { ProjectHistoryPanel } from "@/components/ProjectHistoryPanel";
 import { parsePluginFiles, hasPluginFiles, PluginFile, exportPluginAsZip, downloadZip, getPluginName } from "@/lib/pluginExport";
 import { Button } from "@/components/ui/button";
-import { Blocks, Download, ArrowLeft, FolderTree, FileCode } from "lucide-react";
+import { Blocks, Download, ArrowLeft, FolderTree, FileCode, Save, History } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface LocationState {
@@ -19,9 +21,11 @@ export default function Editor() {
   const location = useLocation();
   const state = location.state as LocationState | null;
   
-  const { messages, isLoading, sendMessage, addMessage } = useChat();
+  const { messages, isLoading, sendMessage, addMessage, setAllMessages } = useChat();
+  const { projects, saveProject, deleteProject } = useProjectHistory();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [pluginFiles, setPluginFiles] = useState<PluginFile[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Initialize with passed state
   useEffect(() => {
@@ -38,8 +42,9 @@ export default function Editor() {
   useEffect(() => {
     const allFiles: PluginFile[] = [];
     for (const msg of messages) {
-      if (msg.role === "assistant" && hasPluginFiles(msg.content)) {
-        const files = parsePluginFiles(msg.content);
+      const textContent = getMessageText(msg);
+      if (msg.role === "assistant" && hasPluginFiles(textContent)) {
+        const files = parsePluginFiles(textContent);
         for (const file of files) {
           // Update or add file
           const existingIdx = allFiles.findIndex(f => f.path === file.path);
@@ -80,6 +85,41 @@ export default function Editor() {
     });
   };
 
+  const handleSaveProject = () => {
+    if (messages.length === 0) {
+      toast({
+        title: "Nothing to save",
+        description: "Start a conversation first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const pluginName = pluginFiles.length > 0 ? getPluginName(pluginFiles) : "Untitled Plugin";
+    saveProject(pluginName, messages, pluginFiles);
+    toast({
+      title: "Project saved!",
+      description: `${pluginName} saved to history.`,
+    });
+  };
+
+  const handleLoadProject = (project: Project) => {
+    setAllMessages(project.messages);
+    setPluginFiles(project.files);
+    setShowHistory(false);
+    toast({
+      title: "Project loaded!",
+      description: `${project.name} restored.`,
+    });
+  };
+
+  const handleDeleteProject = (id: string) => {
+    deleteProject(id);
+    toast({
+      title: "Project deleted",
+    });
+  };
+
   const selectedPluginFile = pluginFiles.find(f => f.path === selectedFile) || null;
 
   return (
@@ -101,6 +141,23 @@ export default function Editor() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setShowHistory(!showHistory)}
+          >
+            <History className="h-4 w-4 mr-1.5" />
+            History
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSaveProject}
+            disabled={messages.length === 0}
+          >
+            <Save className="h-4 w-4 mr-1.5" />
+            Save
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleExport}
             disabled={pluginFiles.length === 0}
           >
@@ -116,13 +173,22 @@ export default function Editor() {
 
       {/* Main Content - 3 Panel Layout */}
       <div className="flex-1 flex min-h-0">
-        {/* Left Panel - Chat */}
+        {/* Left Panel - Chat or History */}
         <div className="w-80 border-r border-border flex flex-col shrink-0">
-          <EditorChatPanel
-            messages={messages}
-            onSend={sendMessage}
-            isLoading={isLoading}
-          />
+          {showHistory ? (
+            <ProjectHistoryPanel
+              projects={projects}
+              onLoad={handleLoadProject}
+              onDelete={handleDeleteProject}
+              onClose={() => setShowHistory(false)}
+            />
+          ) : (
+            <EditorChatPanel
+              messages={messages}
+              onSend={sendMessage}
+              isLoading={isLoading}
+            />
+          )}
         </div>
 
         {/* Middle Panel - File Tree */}

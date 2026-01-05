@@ -1,21 +1,31 @@
 import { cn } from "@/lib/utils";
-import { Bot, User, Download } from "lucide-react";
+import { Bot, User, Download, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { hasPluginFiles, parsePluginFiles, exportPluginAsZip, downloadZip, getPluginName } from "@/lib/pluginExport";
 import { toast } from "@/hooks/use-toast";
+import { Message, MessageContent, getMessageText } from "@/hooks/useChat";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
-  content: string;
+  content: string | MessageContent[];
   isLoading?: boolean;
 }
 
 export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
   const isAssistant = role === "assistant";
-  const canExport = isAssistant && hasPluginFiles(content);
+  
+  // Get text content
+  const textContent = typeof content === 'string' ? content : getMessageText({ role, content });
+  
+  // Check for image in user messages
+  const imageUrl = typeof content !== 'string' 
+    ? content.find(c => c.type === 'image_url')?.image_url?.url 
+    : null;
+  
+  const canExport = isAssistant && hasPluginFiles(textContent);
 
   const handleExport = async () => {
-    const files = parsePluginFiles(content);
+    const files = parsePluginFiles(textContent);
     if (files.length === 0) return;
     
     const pluginName = getPluginName(files);
@@ -31,7 +41,7 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
   };
 
   // Clean content for display (remove file markers)
-  const displayContent = content
+  const displayContent = textContent
     .replace(/===FILE:.+?===\n/g, '\n**📄 ')
     .replace(/===ENDFILE===/g, '\n---');
 
@@ -53,6 +63,17 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
         {isAssistant ? <Bot className="h-5 w-5" /> : <User className="h-5 w-5" />}
       </div>
       <div className="flex-1 space-y-2 overflow-hidden">
+        {/* Show image if present */}
+        {imageUrl && (
+          <div className="mb-2">
+            <img 
+              src={imageUrl} 
+              alt="Uploaded reference" 
+              className="max-h-32 rounded border border-border"
+            />
+          </div>
+        )}
+        
         {canExport && (
           <Button onClick={handleExport} size="sm" className="mb-2 gap-2">
             <Download className="h-4 w-4" />

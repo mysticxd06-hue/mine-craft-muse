@@ -2,11 +2,11 @@ import { useRef, useEffect } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { Pickaxe } from "lucide-react";
-import { Message } from "@/hooks/useChat";
+import { Message, getMessageText } from "@/hooks/useChat";
 
 interface EditorChatPanelProps {
   messages: Message[];
-  onSend: (message: string) => void;
+  onSend: (message: string, imageBase64?: string) => void;
   isLoading: boolean;
 }
 

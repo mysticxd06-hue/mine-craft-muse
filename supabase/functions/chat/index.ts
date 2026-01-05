@@ -13,6 +13,7 @@ Your capabilities:
 - Help with commands, events, items, GUIs, configs, and more
 - Provide proper plugin.yml configurations
 - Help debug plugin issues
+- Analyze images to understand plugin design requirements
 
 When generating code:
 - Always use proper Java conventions
@@ -20,6 +21,12 @@ When generating code:
 - Add helpful comments
 - Use ChatColor for colored messages
 - Follow Bukkit/Spigot API best practices
+
+When a user sends an image:
+- Analyze the image to understand what kind of plugin or feature they want
+- If it's a GUI design, create an inventory GUI that matches it
+- If it's a game mechanic, implement that mechanic
+- If it's unclear, ask for clarification
 
 When a user asks you to create a complete plugin or says they want to "compile" or "export" their plugin, structure your response with these special markers:
 
@@ -57,6 +64,14 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    // Check if any message contains an image
+    const hasImage = messages.some((m: any) => 
+      Array.isArray(m.content) && m.content.some((c: any) => c.type === 'image_url')
+    );
+
+    // Use a vision-capable model if images are present
+    const model = hasImage ? "google/gemini-2.5-flash" : "google/gemini-2.5-flash";
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -64,7 +79,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           ...messages,
