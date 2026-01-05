@@ -70,24 +70,33 @@ export type Database = {
       }
       profiles: {
         Row: {
+          ban_reason: string | null
+          banned_at: string | null
           created_at: string
           display_name: string | null
           email: string
           id: string
+          is_banned: boolean
           updated_at: string
         }
         Insert: {
+          ban_reason?: string | null
+          banned_at?: string | null
           created_at?: string
           display_name?: string | null
           email: string
           id: string
+          is_banned?: boolean
           updated_at?: string
         }
         Update: {
+          ban_reason?: string | null
+          banned_at?: string | null
           created_at?: string
           display_name?: string | null
           email?: string
           id?: string
+          is_banned?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -142,6 +151,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_ban_user: {
+        Args: { _ban: boolean; _reason?: string; _target_user_id: string }
+        Returns: Json
+      }
+      admin_set_credits: {
+        Args: { _credits: number; _reason?: string; _target_user_id: string }
+        Returns: Json
+      }
       admin_set_user_role: {
         Args: {
           _new_role: Database["public"]["Enums"]["app_role"]
