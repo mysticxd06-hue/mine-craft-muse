@@ -7,8 +7,15 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Github, Download, ExternalLink, Copy, Check } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Github, Download, ExternalLink, Copy, Check, ChevronDown, Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import { PluginFile, getPluginName } from "@/lib/pluginExport";
+import { supabase } from "@/integrations/supabase/client";
 import JSZip from "jszip";
 
 interface GitHubCompileButtonProps {
@@ -16,10 +23,20 @@ interface GitHubCompileButtonProps {
   disabled?: boolean;
 }
 
+interface CompilationResult {
+  file: string;
+  success: boolean;
+  output: string;
+}
+
 export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButtonProps) {
   const [showDialog, setShowDialog] = useState(false);
+  const [showCompileDialog, setShowCompileDialog] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isCompiling, setIsCompiling] = useState(false);
+  const [compilationResults, setCompilationResults] = useState<CompilationResult[]>([]);
+  const [compilationMessage, setCompilationMessage] = useState("");
 
   const pluginName = getPluginName(pluginFiles);
 
@@ -239,6 +256,34 @@ Your JAR will be in the \`target/\` folder.
     }
   };
 
+  const handleJDoodleCompile = async () => {
+    setIsCompiling(true);
+    setCompilationResults([]);
+    setCompilationMessage("");
+    setShowCompileDialog(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('compile-plugin', {
+        body: {
+          files: pluginFiles,
+          pluginName,
+        },
+      });
+
+      if (error) {
+        setCompilationMessage(`Error: ${error.message}`);
+        return;
+      }
+
+      setCompilationResults(data.results || []);
+      setCompilationMessage(data.message || (data.success ? 'Compilation successful!' : 'Compilation failed.'));
+    } catch (err) {
+      setCompilationMessage(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsCompiling(false);
+    }
+  };
+
   const handleCopy = async (text: string) => {
     await navigator.clipboard.writeText(text);
     setCopied(true);
@@ -252,18 +297,91 @@ git branch -M main
 git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
 git push -u origin main`;
 
+  const isLoading = isExporting || isCompiling;
+
   return (
     <>
-      <Button
-        variant="default"
-        size="sm"
-        onClick={handleExportWithGitHub}
-        disabled={disabled || isExporting}
-      >
-        <Github className="h-4 w-4 mr-1.5" />
-        {isExporting ? "Preparing..." : "Compile"}
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="default"
+            size="sm"
+            disabled={disabled || isLoading}
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-1.5" />
+            )}
+            {isCompiling ? "Compiling..." : isExporting ? "Preparing..." : "Compile"}
+            <ChevronDown className="h-3 w-3 ml-1" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleJDoodleCompile}>
+            <CheckCircle className="h-4 w-4 mr-2" />
+            Check Syntax (JDoodle)
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleExportWithGitHub}>
+            <Github className="h-4 w-4 mr-2" />
+            Export for GitHub Actions
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
+      {/* JDoodle Compilation Results Dialog */}
+      <Dialog open={showCompileDialog} onOpenChange={setShowCompileDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {isCompiling ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : compilationResults.every(r => r.success) ? (
+                <CheckCircle className="h-5 w-5 text-green-500" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-destructive" />
+              )}
+              {isCompiling ? "Checking Syntax..." : "Compilation Results"}
+            </DialogTitle>
+            <DialogDescription>
+              {isCompiling ? "Verifying your plugin code with JDoodle..." : compilationMessage}
+            </DialogDescription>
+          </DialogHeader>
+
+          {!isCompiling && compilationResults.length > 0 && (
+            <div className="space-y-3 mt-4 max-h-64 overflow-y-auto">
+              {compilationResults.map((result, index) => (
+                <div
+                  key={index}
+                  className={`p-3 rounded-lg ${result.success ? 'bg-green-500/10 border border-green-500/20' : 'bg-destructive/10 border border-destructive/20'}`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    {result.success ? (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 text-destructive" />
+                    )}
+                    <span className="text-sm font-medium">{result.file}</span>
+                  </div>
+                  <pre className="text-xs text-muted-foreground overflow-x-auto whitespace-pre-wrap">
+                    {result.output.slice(0, 500)}{result.output.length > 500 ? '...' : ''}
+                  </pre>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!isCompiling && (
+            <div className="bg-muted/50 border rounded-lg p-3 mt-2">
+              <p className="text-xs text-muted-foreground">
+                <strong>Note:</strong> JDoodle checks syntax but can't produce a full Minecraft plugin JAR due to Spigot API dependencies. Use "Export for GitHub Actions" for a compiled JAR.
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* GitHub Export Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
