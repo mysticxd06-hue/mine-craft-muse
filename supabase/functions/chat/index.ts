@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-user-jwt",
 };
 
 const SYSTEM_PROMPT = `You are an expert Minecraft plugin developer assistant. You specialize in creating Bukkit, Spigot, and Paper plugins using Java.
@@ -68,7 +68,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Get authorization header
+    // Get authorization header (required by the gateway)
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Authorization required" }), {
@@ -77,10 +77,13 @@ serve(async (req) => {
       });
     }
 
-    // Verify user from the token
-    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-    if (!token) {
-      return new Response(JSON.stringify({ error: "Authorization required" }), {
+    // Prefer the real user JWT from a dedicated header.
+    // This avoids gateway JWT verification issues with ES256 user tokens.
+    const userJwtHeader = req.headers.get("x-user-jwt") || "";
+    const token = (userJwtHeader || authHeader.replace(/^Bearer\s+/i, "").trim()).trim();
+
+    if (!token || token.split('.').length !== 3) {
+      return new Response(JSON.stringify({ error: "Invalid authentication" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
