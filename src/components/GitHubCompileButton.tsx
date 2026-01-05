@@ -43,11 +43,17 @@ interface CompilationResult {
 
 type JavaVersion = "17" | "21";
 type MinecraftVersion = "1.20.4" | "1.21" | "1.21.4";
+type ServerAPI = "spigot" | "paper";
 
 const MC_JAVA_COMPATIBILITY: Record<MinecraftVersion, JavaVersion[]> = {
   "1.20.4": ["17", "21"],
   "1.21": ["21"],
   "1.21.4": ["21"],
+};
+
+const SERVER_API_LABELS: Record<ServerAPI, string> = {
+  "spigot": "Spigot API",
+  "paper": "Paper API (Paperweight)",
 };
 
 export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButtonProps) {
@@ -64,10 +70,27 @@ export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButt
   // Configuration state
   const [javaVersion, setJavaVersion] = useState<JavaVersion>("21");
   const [mcVersion, setMcVersion] = useState<MinecraftVersion>("1.21.4");
+  const [serverAPI, setServerAPI] = useState<ServerAPI>("paper");
 
   const pluginName = getPluginName(pluginFiles);
 
-  const generatePomXml = (java: JavaVersion, mc: MinecraftVersion) => {
+  const generatePomXml = (java: JavaVersion, mc: MinecraftVersion, api: ServerAPI) => {
+    const isPaper = api === "paper";
+    
+    const dependency = isPaper
+      ? `        <dependency>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <version>${mc}-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>`
+      : `        <dependency>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigot-api</artifactId>
+            <version>${mc}-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>`;
+
     return `<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -88,22 +111,17 @@ export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButt
 
     <repositories>
         <repository>
-            <id>spigotmc-repo</id>
-            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
-        </repository>
-        <repository>
             <id>papermc-repo</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+        <repository>
+            <id>spigotmc-repo</id>
+            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
         </repository>
     </repositories>
 
     <dependencies>
-        <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigot-api</artifactId>
-            <version>${mc}-R0.1-SNAPSHOT</version>
-            <scope>provided</scope>
-        </dependency>
+${dependency}
     </dependencies>
 
     <build>
@@ -221,7 +239,7 @@ jobs:
       }
 
       // Add pom.xml (always generate fresh with correct versions)
-      zip.file("pom.xml", generatePomXml(javaVersion, mcVersion));
+      zip.file("pom.xml", generatePomXml(javaVersion, mcVersion, serverAPI));
 
       // Add GitHub Actions workflow
       zip.file(".github/workflows/build.yml", generateGitHubWorkflow(javaVersion));
@@ -443,7 +461,7 @@ fi
       }
 
       // Add pom.xml
-      zip.file("pom.xml", generatePomXml(javaVersion, mcVersion));
+      zip.file("pom.xml", generatePomXml(javaVersion, mcVersion, serverAPI));
 
       // Add build scripts
       zip.file("BUILD.bat", generateBuildScript(true, javaVersion));
@@ -575,10 +593,26 @@ git push -u origin main`;
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel className="text-xs text-muted-foreground">
-            Target: Java {javaVersion} • MC {mcVersion}
+            {SERVER_API_LABELS[serverAPI]} • Java {javaVersion} • MC {mcVersion}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <span>Server API</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem onClick={() => setServerAPI("paper")}>
+                <Check className={`h-4 w-4 mr-2 ${serverAPI === "paper" ? "opacity-100" : "opacity-0"}`} />
+                Paper API (Recommended)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setServerAPI("spigot")}>
+                <Check className={`h-4 w-4 mr-2 ${serverAPI === "spigot" ? "opacity-100" : "opacity-0"}`} />
+                Spigot API
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <span>Minecraft Version</span>
