@@ -1,7 +1,8 @@
 import { PluginFile } from "@/lib/pluginExport";
-import { File, Copy, Check } from "lucide-react";
+import { File, Copy, Check, Code } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface CodeViewerProps {
   file: PluginFile | null;
@@ -23,6 +24,18 @@ function getLanguage(path: string): string {
   return langMap[ext || ""] || "text";
 }
 
+function getLanguageColor(lang: string): string {
+  const colors: Record<string, string> = {
+    java: "text-neon-orange",
+    yaml: "text-neon-yellow",
+    xml: "text-neon-cyan",
+    json: "text-neon-green",
+    groovy: "text-neon-cyan",
+    properties: "text-muted-foreground",
+  };
+  return colors[lang] || "text-muted-foreground";
+}
+
 export function CodeViewer({ file }: CodeViewerProps) {
   const [copied, setCopied] = useState(false);
 
@@ -35,9 +48,14 @@ export function CodeViewer({ file }: CodeViewerProps) {
 
   if (!file) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-card">
-        <File className="h-12 w-12 text-muted-foreground mb-4" />
-        <p className="text-muted-foreground">Select a file to view its contents</p>
+      <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-background relative">
+        <div className="absolute inset-0 bg-grid-dense opacity-10" />
+        <div className="relative z-10">
+          <div className="h-16 w-16 rounded-2xl bg-muted/50 border border-border flex items-center justify-center mb-4 mx-auto">
+            <Code className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <p className="text-muted-foreground font-display">Select a file to view</p>
+        </div>
       </div>
     );
   }
@@ -46,40 +64,57 @@ export function CodeViewer({ file }: CodeViewerProps) {
   const language = getLanguage(file.path);
 
   return (
-    <div className="flex flex-col h-full bg-card">
-      {/* File tabs header */}
-      <div className="flex items-center border-b border-border bg-secondary/50">
-        <div className="flex items-center gap-2 px-4 py-2 bg-card border-r border-border">
-          <File className="h-4 w-4 text-muted-foreground" />
+    <div className="flex flex-col h-full bg-background">
+      {/* File tab header */}
+      <div className="flex items-center border-b border-border bg-card/50">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-secondary/30 border-r border-border">
+          <File className={cn("h-4 w-4", getLanguageColor(language))} />
           <span className="text-sm font-mono text-foreground">
             {file.path.split("/").pop()}
           </span>
+          <span className={cn("text-xs font-display uppercase tracking-wider", getLanguageColor(language))}>
+            {language}
+          </span>
         </div>
-        <div className="ml-auto pr-2">
+        <div className="flex-1" />
+        <div className="px-3">
           <Button
             variant="ghost"
             size="sm"
             onClick={handleCopy}
-            className="h-7 px-2"
+            className="h-8 px-3 gap-2"
           >
             {copied ? (
-              <Check className="h-4 w-4 text-primary" />
+              <>
+                <Check className="h-4 w-4 text-neon-green" />
+                <span className="text-xs font-mono text-neon-green">Copied!</span>
+              </>
             ) : (
-              <Copy className="h-4 w-4" />
+              <>
+                <Copy className="h-4 w-4" />
+                <span className="text-xs font-mono">Copy</span>
+              </>
             )}
           </Button>
         </div>
       </div>
 
       {/* Code content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto relative">
+        {/* Scanline effect */}
+        <div className="absolute inset-0 pointer-events-none opacity-[0.02]" 
+          style={{
+            background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,255,0.03) 2px, rgba(0,255,255,0.03) 4px)'
+          }} 
+        />
+        
         <div className="flex min-h-full">
           {/* Line numbers */}
-          <div className="flex-shrink-0 bg-secondary/30 border-r border-border px-3 py-4 select-none">
+          <div className="flex-shrink-0 bg-secondary/20 border-r border-border px-4 py-4 select-none sticky left-0">
             {lines.map((_, i) => (
               <div
                 key={i}
-                className="text-xs font-mono text-muted-foreground text-right leading-6"
+                className="text-xs font-mono text-muted-foreground/50 text-right leading-6 tabular-nums"
               >
                 {i + 1}
               </div>
@@ -90,7 +125,7 @@ export function CodeViewer({ file }: CodeViewerProps) {
           <pre className="flex-1 p-4 overflow-x-auto">
             <code className={`language-${language} text-sm font-mono leading-6`}>
               {lines.map((line, i) => (
-                <div key={i} className="whitespace-pre text-foreground/90">
+                <div key={i} className="whitespace-pre text-foreground/85 hover:text-foreground hover:bg-primary/5 transition-colors">
                   {highlightLine(line, language)}
                 </div>
               ))}
@@ -125,51 +160,47 @@ function highlightJava(line: string): React.ReactNode {
   let result = line;
   const spans: { start: number; end: number; className: string; text: string }[] = [];
 
-  // Find comments first (highest priority)
   let match;
   while ((match = comments.exec(line)) !== null) {
     spans.push({
       start: match.index,
       end: match.index + match[0].length,
-      className: "text-muted-foreground italic",
+      className: "text-muted-foreground/60 italic",
       text: match[0],
     });
   }
 
-  // Find strings
   while ((match = strings.exec(line)) !== null) {
     const overlaps = spans.some(s => match!.index >= s.start && match!.index < s.end);
     if (!overlaps) {
       spans.push({
         start: match.index,
         end: match.index + match[0].length,
-        className: "text-green-400",
+        className: "text-neon-green",
         text: match[0],
       });
     }
   }
 
-  // Find annotations
   while ((match = annotations.exec(line)) !== null) {
     const overlaps = spans.some(s => match!.index >= s.start && match!.index < s.end);
     if (!overlaps) {
       spans.push({
         start: match.index,
         end: match.index + match[0].length,
-        className: "text-yellow-400",
+        className: "text-neon-yellow",
         text: match[0],
       });
     }
   }
 
-  // Find keywords
   while ((match = keywords.exec(line)) !== null) {
     const overlaps = spans.some(s => match!.index >= s.start && match!.index < s.end);
     if (!overlaps) {
       spans.push({
         start: match.index,
         end: match.index + match[0].length,
-        className: "text-purple-400 font-medium",
+        className: "text-neon-magenta font-medium",
         text: match[0],
       });
     }
@@ -177,10 +208,8 @@ function highlightJava(line: string): React.ReactNode {
 
   if (spans.length === 0) return line;
 
-  // Sort by position
   spans.sort((a, b) => a.start - b.start);
 
-  // Build result
   const parts: React.ReactNode[] = [];
   let lastEnd = 0;
 
@@ -212,7 +241,7 @@ function highlightYaml(line: string): React.ReactNode {
     return (
       <>
         {line.slice(0, idx)}
-        <span className="text-muted-foreground italic">{comment[0]}</span>
+        <span className="text-muted-foreground/60 italic">{comment[0]}</span>
       </>
     );
   }
@@ -223,9 +252,9 @@ function highlightYaml(line: string): React.ReactNode {
     return (
       <>
         {indent}
-        <span className="text-cyan-400">{key}</span>
+        <span className="text-neon-cyan">{key}</span>
         <span className="text-foreground">{colon}</span>
-        <span className="text-green-400">{rest}</span>
+        <span className="text-neon-green">{rest}</span>
       </>
     );
   }
@@ -234,15 +263,13 @@ function highlightYaml(line: string): React.ReactNode {
 }
 
 function highlightXml(line: string): React.ReactNode {
-  // Simple XML highlighting
   const tagPattern = /<\/?[\w-]+/g;
   const attrPattern = /\s[\w-]+=/g;
   const valuePattern = /"[^"]*"/g;
 
   let result = line;
   
-  // Highlight tags
-  result = line.replace(tagPattern, (match) => `<span class="text-cyan-400">${match}</span>`);
+  result = line.replace(tagPattern, (match) => `<span class="text-neon-cyan">${match}</span>`);
   
   return <span dangerouslySetInnerHTML={{ __html: result }} />;
 }
