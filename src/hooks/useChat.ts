@@ -75,10 +75,7 @@ export function useChat() {
         headers: {
           'Content-Type': 'application/json',
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          // Use the project publishable key for the gateway's JWT verification
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          // Pass the real user session JWT separately for server-side auth checks
-          'x-user-jwt': session.access_token,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ messages: [...messages, userMessage] }),
       });

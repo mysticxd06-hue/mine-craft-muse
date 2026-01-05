@@ -1,1 +1,7 @@
 project_id = "bicwhoxpuhvfeklbqzqf"
+
+[functions.chat]
+verify_jwt = false
+
+[functions.compile-plugin]
+verify_jwt = false
