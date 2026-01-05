@@ -569,12 +569,13 @@ Copy this JAR to your Minecraft server's \`plugins\` folder!
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${pluginName}-compile-ready.zip`;
+      a.download = `${pluginName}-OneClickBuild.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
+      toast.success(`Downloaded! Extract and run BUILD.bat (Windows) or build.sh (Mac/Linux) to get ${pluginName}.jar`, { duration: 8000 });
       setShowLocalCompileDialog(true);
     } finally {
       setIsLocalExporting(false);
@@ -940,7 +941,7 @@ Copy this to your server's \`plugins\` folder!
           {/* COMPILE BUTTON - Primary action */}
           <DropdownMenuItem onClick={handleDirectCompile} className="font-medium" disabled={!user || loading}>
             <Hammer className="h-4 w-4 mr-2 text-primary" />
-            {user ? "Download compile package (builds a JAR)" : "Sign in to compile"}
+            {user ? "Compile → Get .jar" : "Sign in to compile"}
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
@@ -1206,11 +1207,11 @@ Copy this to your server's \`plugins\` folder!
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Terminal className="h-5 w-5" />
-              Ready to Compile!
+              <Package className="h-5 w-5 text-green-500" />
+              One-Click JAR Builder Downloaded!
             </DialogTitle>
             <DialogDescription>
-              Java {javaVersion} • Minecraft {mcVersion}
+              Run the script to get <strong>{pluginName}.jar</strong> • Java {javaVersion} • MC {mcVersion}
             </DialogDescription>
           </DialogHeader>
 
