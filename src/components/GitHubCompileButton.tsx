@@ -12,8 +12,20 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { Github, Download, ExternalLink, Copy, Check, ChevronDown, Loader2, AlertCircle, CheckCircle } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Github, Download, ExternalLink, Copy, Check, ChevronDown, Loader2, AlertCircle, CheckCircle, Package } from "lucide-react";
 import { PluginFile, getPluginName } from "@/lib/pluginExport";
 import { supabase } from "@/integrations/supabase/client";
 import JSZip from "jszip";
@@ -29,6 +41,15 @@ interface CompilationResult {
   output: string;
 }
 
+type JavaVersion = "17" | "21";
+type MinecraftVersion = "1.20.4" | "1.21" | "1.21.4";
+
+const MC_JAVA_COMPATIBILITY: Record<MinecraftVersion, JavaVersion[]> = {
+  "1.20.4": ["17", "21"],
+  "1.21": ["21"],
+  "1.21.4": ["21"],
+};
+
 export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButtonProps) {
   const [showDialog, setShowDialog] = useState(false);
   const [showCompileDialog, setShowCompileDialog] = useState(false);
@@ -37,10 +58,14 @@ export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButt
   const [isCompiling, setIsCompiling] = useState(false);
   const [compilationResults, setCompilationResults] = useState<CompilationResult[]>([]);
   const [compilationMessage, setCompilationMessage] = useState("");
+  
+  // Configuration state
+  const [javaVersion, setJavaVersion] = useState<JavaVersion>("21");
+  const [mcVersion, setMcVersion] = useState<MinecraftVersion>("1.21.4");
 
   const pluginName = getPluginName(pluginFiles);
 
-  const generatePomXml = () => {
+  const generatePomXml = (java: JavaVersion, mc: MinecraftVersion) => {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -55,7 +80,7 @@ export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButt
     <name>${pluginName}</name>
 
     <properties>
-        <java.version>17</java.version>
+        <java.version>${java}</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -74,7 +99,7 @@ export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButt
         <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
-            <version>1.20.4-R0.1-SNAPSHOT</version>
+            <version>${mc}-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
@@ -84,16 +109,17 @@ export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButt
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
+                <version>3.13.0</version>
                 <configuration>
                     <source>\${java.version}</source>
                     <target>\${java.version}</target>
+                    <release>\${java.version}</release>
                 </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
-                <version>3.3.0</version>
+                <version>3.4.2</version>
                 <configuration>
                     <finalName>${pluginName}</finalName>
                 </configuration>
@@ -109,7 +135,7 @@ export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButt
 </project>`;
   };
 
-  const generateGitHubWorkflow = () => {
+  const generateGitHubWorkflow = (java: JavaVersion) => {
     return `name: Build Plugin
 
 on:
@@ -126,10 +152,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up JDK 17
+    - name: Set up JDK ${java}
       uses: actions/setup-java@v4
       with:
-        java-version: '17'
+        java-version: '${java}'
         distribution: 'temurin'
         cache: maven
     
@@ -151,10 +177,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up JDK 17
+    - name: Set up JDK ${java}
       uses: actions/setup-java@v4
       with:
-        java-version: '17'
+        java-version: '${java}'
         distribution: 'temurin'
         cache: maven
     
@@ -177,24 +203,33 @@ jobs:
     try {
       const zip = new JSZip();
 
-      // Add all plugin files
+      // Add all plugin files (but update plugin.yml api-version based on MC version)
       for (const file of pluginFiles) {
-        zip.file(file.path, file.content);
+        if (file.path.endsWith('plugin.yml')) {
+          // Update api-version in plugin.yml
+          const apiVersion = mcVersion.substring(0, 4); // e.g., "1.21" from "1.21.4"
+          const updatedContent = file.content.replace(
+            /api-version:\s*['"]?[\d.]+['"]?/,
+            `api-version: '${apiVersion}'`
+          );
+          zip.file(file.path, updatedContent);
+        } else {
+          zip.file(file.path, file.content);
+        }
       }
 
-      // Add pom.xml if not present
-      const hasPom = pluginFiles.some(f => f.path === "pom.xml");
-      if (!hasPom) {
-        zip.file("pom.xml", generatePomXml());
-      }
+      // Add pom.xml (always generate fresh with correct versions)
+      zip.file("pom.xml", generatePomXml(javaVersion, mcVersion));
 
       // Add GitHub Actions workflow
-      zip.file(".github/workflows/build.yml", generateGitHubWorkflow());
+      zip.file(".github/workflows/build.yml", generateGitHubWorkflow(javaVersion));
 
       // Add README with instructions
       const readme = `# ${pluginName}
 
-A Minecraft plugin generated with Plugin Craftsman.
+A Minecraft plugin generated with Lunar Sky Studio.
+
+**Target:** Minecraft ${mcVersion} | Java ${javaVersion}
 
 ## Auto-Compile with GitHub Actions
 
@@ -229,13 +264,23 @@ Every push to the main branch will also create a GitHub Release with your compil
 
 ## Building Locally
 
-If you prefer to build locally:
+If you prefer to build locally, ensure you have:
+- Java ${javaVersion} JDK installed
+- Maven installed
+
+Then run:
 
 \`\`\`bash
 mvn clean package
 \`\`\`
 
 Your JAR will be in the \`target/\` folder.
+
+## Compatibility
+
+- **Minecraft Version:** ${mcVersion}
+- **Java Version:** ${javaVersion}
+- **Server Software:** Spigot, Paper, Purpur (any Bukkit-based server)
 `;
       zip.file("README.md", readme);
 
@@ -244,7 +289,7 @@ Your JAR will be in the \`target/\` folder.
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${pluginName}-github.zip`;
+      a.download = `${pluginName}-java${javaVersion}-mc${mcVersion}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -267,6 +312,7 @@ Your JAR will be in the \`target/\` folder.
         body: {
           files: pluginFiles,
           pluginName,
+          javaVersion,
         },
       });
 
@@ -299,6 +345,15 @@ git push -u origin main`;
 
   const isLoading = isExporting || isCompiling;
 
+  // Check Java compatibility when MC version changes
+  const handleMcVersionChange = (mc: MinecraftVersion) => {
+    setMcVersion(mc);
+    const compatible = MC_JAVA_COMPATIBILITY[mc];
+    if (!compatible.includes(javaVersion)) {
+      setJavaVersion(compatible[0]);
+    }
+  };
+
   return (
     <>
       <DropdownMenu>
@@ -307,24 +362,75 @@ git push -u origin main`;
             variant="default"
             size="sm"
             disabled={disabled || isLoading}
+            className="bg-gradient-to-r from-primary to-accent hover:opacity-90"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
             ) : (
-              <Download className="h-4 w-4 mr-1.5" />
+              <Package className="h-4 w-4 mr-1.5" />
             )}
-            {isCompiling ? "Compiling..." : isExporting ? "Preparing..." : "Compile"}
+            {isCompiling ? "Checking..." : isExporting ? "Preparing..." : "Build"}
             <ChevronDown className="h-3 w-3 ml-1" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel className="text-xs text-muted-foreground">
+            Target: Java {javaVersion} • MC {mcVersion}
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <span>Minecraft Version</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem onClick={() => handleMcVersionChange("1.21.4")}>
+                <Check className={`h-4 w-4 mr-2 ${mcVersion === "1.21.4" ? "opacity-100" : "opacity-0"}`} />
+                1.21.4 (Latest)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleMcVersionChange("1.21")}>
+                <Check className={`h-4 w-4 mr-2 ${mcVersion === "1.21" ? "opacity-100" : "opacity-0"}`} />
+                1.21
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleMcVersionChange("1.20.4")}>
+                <Check className={`h-4 w-4 mr-2 ${mcVersion === "1.20.4" ? "opacity-100" : "opacity-0"}`} />
+                1.20.4
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <span>Java Version</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem 
+                onClick={() => setJavaVersion("21")}
+                disabled={!MC_JAVA_COMPATIBILITY[mcVersion].includes("21")}
+              >
+                <Check className={`h-4 w-4 mr-2 ${javaVersion === "21" ? "opacity-100" : "opacity-0"}`} />
+                Java 21 (Recommended)
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setJavaVersion("17")}
+                disabled={!MC_JAVA_COMPATIBILITY[mcVersion].includes("17")}
+              >
+                <Check className={`h-4 w-4 mr-2 ${javaVersion === "17" ? "opacity-100" : "opacity-0"}`} />
+                Java 17
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+
+          <DropdownMenuSeparator />
+
           <DropdownMenuItem onClick={handleJDoodleCompile}>
             <CheckCircle className="h-4 w-4 mr-2" />
-            Check Syntax (JDoodle)
+            Check Syntax
           </DropdownMenuItem>
+          
           <DropdownMenuItem onClick={handleExportWithGitHub}>
             <Github className="h-4 w-4 mr-2" />
-            Export for GitHub Actions
+            Export for GitHub
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -336,15 +442,15 @@ git push -u origin main`;
             <DialogTitle className="flex items-center gap-2">
               {isCompiling ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
-              ) : compilationResults.every(r => r.success) ? (
+              ) : compilationResults.every(r => r.success) && compilationResults.length > 0 ? (
                 <CheckCircle className="h-5 w-5 text-green-500" />
               ) : (
                 <AlertCircle className="h-5 w-5 text-destructive" />
               )}
-              {isCompiling ? "Checking Syntax..." : "Compilation Results"}
+              {isCompiling ? "Checking Syntax..." : "Syntax Check Results"}
             </DialogTitle>
             <DialogDescription>
-              {isCompiling ? "Verifying your plugin code with JDoodle..." : compilationMessage}
+              {isCompiling ? `Verifying your plugin code (Java ${javaVersion})...` : compilationMessage}
             </DialogDescription>
           </DialogHeader>
 
@@ -372,10 +478,25 @@ git push -u origin main`;
           )}
 
           {!isCompiling && (
-            <div className="bg-muted/50 border rounded-lg p-3 mt-2">
-              <p className="text-xs text-muted-foreground">
-                <strong>Note:</strong> JDoodle checks syntax but can't produce a full Minecraft plugin JAR due to Spigot API dependencies. Use "Export for GitHub Actions" for a compiled JAR.
-              </p>
+            <div className="bg-muted/50 border rounded-lg p-3 mt-2 space-y-2">
+              <p className="text-sm font-medium text-foreground">To get a compiled JAR:</p>
+              <ol className="text-xs text-muted-foreground list-decimal list-inside space-y-1">
+                <li>Use "Export for GitHub" to download the project</li>
+                <li>Push to a GitHub repository</li>
+                <li>GitHub Actions will auto-compile and create releases</li>
+              </ol>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full mt-2"
+                onClick={() => {
+                  setShowCompileDialog(false);
+                  handleExportWithGitHub();
+                }}
+              >
+                <Github className="h-4 w-4 mr-2" />
+                Export for GitHub
+              </Button>
             </div>
           )}
         </DialogContent>
@@ -390,7 +511,7 @@ git push -u origin main`;
               ZIP Downloaded!
             </DialogTitle>
             <DialogDescription>
-              Follow these steps to get your compiled JAR
+              Java {javaVersion} • Minecraft {mcVersion} — Follow these steps to compile
             </DialogDescription>
           </DialogHeader>
 
@@ -454,7 +575,7 @@ git push -u origin main`;
 
             <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
               <p className="text-sm text-foreground">
-                <strong>Bonus:</strong> Every push to main automatically creates a GitHub Release with your JAR attached!
+                <strong>✨ Auto-Release:</strong> Every push to main creates a GitHub Release with your compiled JAR!
               </p>
             </div>
           </div>
