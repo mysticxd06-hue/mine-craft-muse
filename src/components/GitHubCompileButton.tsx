@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Github, Download, ExternalLink, Copy, Check, ChevronDown, Loader2, AlertCircle, CheckCircle, Package } from "lucide-react";
+import { Github, Download, ExternalLink, Copy, Check, ChevronDown, Loader2, AlertCircle, CheckCircle, Package, Terminal } from "lucide-react";
 import { PluginFile, getPluginName } from "@/lib/pluginExport";
 import { supabase } from "@/integrations/supabase/client";
 import JSZip from "jszip";
@@ -53,9 +53,11 @@ const MC_JAVA_COMPATIBILITY: Record<MinecraftVersion, JavaVersion[]> = {
 export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButtonProps) {
   const [showDialog, setShowDialog] = useState(false);
   const [showCompileDialog, setShowCompileDialog] = useState(false);
+  const [showLocalCompileDialog, setShowLocalCompileDialog] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isCompiling, setIsCompiling] = useState(false);
+  const [isLocalExporting, setIsLocalExporting] = useState(false);
   const [compilationResults, setCompilationResults] = useState<CompilationResult[]>([]);
   const [compilationMessage, setCompilationMessage] = useState("");
   
@@ -301,6 +303,204 @@ Your JAR will be in the \`target/\` folder.
     }
   };
 
+  const generateBuildScript = (isWindows: boolean, java: JavaVersion) => {
+    if (isWindows) {
+      return `@echo off
+echo =======================================
+echo   ${pluginName} - Plugin Compiler
+echo   Java ${java} / Minecraft ${mcVersion}
+echo =======================================
+echo.
+
+REM Check if Maven is installed
+where mvn >nul 2>nul
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Maven is not installed or not in PATH!
+    echo.
+    echo Please install Maven:
+    echo   1. Download from: https://maven.apache.org/download.cgi
+    echo   2. Extract and add bin folder to PATH
+    echo   3. Run this script again
+    echo.
+    pause
+    exit /b 1
+)
+
+REM Check if Java is installed
+where java >nul 2>nul
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Java is not installed or not in PATH!
+    echo.
+    echo Please install Java ${java}:
+    echo   Download from: https://adoptium.net/
+    echo.
+    pause
+    exit /b 1
+)
+
+echo [INFO] Building ${pluginName}...
+echo.
+
+call mvn clean package -q
+
+if %ERRORLEVEL% EQU 0 (
+    echo.
+    echo =======================================
+    echo   BUILD SUCCESSFUL!
+    echo =======================================
+    echo.
+    echo Your plugin JAR is ready at:
+    echo   target\\${pluginName}.jar
+    echo.
+    echo Copy it to your server's plugins folder!
+    echo.
+    
+    REM Open the target folder
+    start "" "target"
+) else (
+    echo.
+    echo [ERROR] Build failed! Check the errors above.
+)
+
+pause
+`;
+    } else {
+      return `#!/bin/bash
+
+echo "======================================="
+echo "  ${pluginName} - Plugin Compiler"
+echo "  Java ${java} / Minecraft ${mcVersion}"
+echo "======================================="
+echo ""
+
+# Check if Maven is installed
+if ! command -v mvn &> /dev/null; then
+    echo "[ERROR] Maven is not installed!"
+    echo ""
+    echo "Please install Maven:"
+    echo "  macOS: brew install maven"
+    echo "  Linux: sudo apt install maven"
+    echo ""
+    exit 1
+fi
+
+# Check if Java is installed
+if ! command -v java &> /dev/null; then
+    echo "[ERROR] Java is not installed!"
+    echo ""
+    echo "Please install Java ${java}:"
+    echo "  Download from: https://adoptium.net/"
+    echo ""
+    exit 1
+fi
+
+echo "[INFO] Building ${pluginName}..."
+echo ""
+
+mvn clean package -q
+
+if [ $? -eq 0 ]; then
+    echo ""
+    echo "======================================="
+    echo "  BUILD SUCCESSFUL!"
+    echo "======================================="
+    echo ""
+    echo "Your plugin JAR is ready at:"
+    echo "  target/${pluginName}.jar"
+    echo ""
+    echo "Copy it to your server's plugins folder!"
+    
+    # Open the target folder (macOS only)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        open target/
+    fi
+else
+    echo ""
+    echo "[ERROR] Build failed! Check the errors above."
+    exit 1
+fi
+`;
+    }
+  };
+
+  const handleLocalCompileExport = async () => {
+    setIsLocalExporting(true);
+    try {
+      const zip = new JSZip();
+
+      // Add all plugin files (but update plugin.yml api-version based on MC version)
+      for (const file of pluginFiles) {
+        if (file.path.endsWith('plugin.yml')) {
+          const apiVersion = mcVersion.substring(0, 4);
+          const updatedContent = file.content.replace(
+            /api-version:\s*['"]?[\d.]+['"]?/,
+            `api-version: '${apiVersion}'`
+          );
+          zip.file(file.path, updatedContent);
+        } else {
+          zip.file(file.path, file.content);
+        }
+      }
+
+      // Add pom.xml
+      zip.file("pom.xml", generatePomXml(javaVersion, mcVersion));
+
+      // Add build scripts
+      zip.file("BUILD.bat", generateBuildScript(true, javaVersion));
+      zip.file("build.sh", generateBuildScript(false, javaVersion));
+
+      // Add README
+      const readme = `# ${pluginName}
+
+A Minecraft plugin generated with Lunar Sky Studio.
+
+**Target:** Minecraft ${mcVersion} | Java ${javaVersion}
+
+## One-Click Compile
+
+### Windows
+Double-click \`BUILD.bat\` to compile your plugin.
+
+### macOS / Linux
+1. Open Terminal in this folder
+2. Run: \`chmod +x build.sh && ./build.sh\`
+
+## Requirements
+
+- **Java ${javaVersion}**: Download from [Adoptium](https://adoptium.net/)
+- **Maven**: 
+  - Windows: [Download](https://maven.apache.org/download.cgi) and add to PATH
+  - macOS: \`brew install maven\`
+  - Linux: \`sudo apt install maven\`
+
+## Output
+
+After building, your plugin will be at:
+\`\`\`
+target/${pluginName}.jar
+\`\`\`
+
+Copy this JAR to your Minecraft server's \`plugins\` folder!
+`;
+      zip.file("README.md", readme);
+
+      // Generate and download
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${pluginName}-compile-ready.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setShowLocalCompileDialog(true);
+    } finally {
+      setIsLocalExporting(false);
+    }
+  };
+
   const handleJDoodleCompile = async () => {
     setIsCompiling(true);
     setCompilationResults([]);
@@ -343,7 +543,7 @@ git branch -M main
 git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
 git push -u origin main`;
 
-  const isLoading = isExporting || isCompiling;
+  const isLoading = isExporting || isCompiling || isLocalExporting;
 
   // Check Java compatibility when MC version changes
   const handleMcVersionChange = (mc: MinecraftVersion) => {
@@ -369,7 +569,7 @@ git push -u origin main`;
             ) : (
               <Package className="h-4 w-4 mr-1.5" />
             )}
-            {isCompiling ? "Checking..." : isExporting ? "Preparing..." : "Build"}
+            {isCompiling ? "Checking..." : isExporting || isLocalExporting ? "Preparing..." : "Build"}
             <ChevronDown className="h-3 w-3 ml-1" />
           </Button>
         </DropdownMenuTrigger>
@@ -420,6 +620,13 @@ git push -u origin main`;
               </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuSub>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem onClick={handleLocalCompileExport}>
+            <Download className="h-4 w-4 mr-2" />
+            Download & Compile Locally
+          </DropdownMenuItem>
 
           <DropdownMenuSeparator />
 
@@ -577,6 +784,70 @@ git push -u origin main`;
               <p className="text-sm text-foreground">
                 <strong>✨ Auto-Release:</strong> Every push to main creates a GitHub Release with your compiled JAR!
               </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Local Compile Dialog */}
+      <Dialog open={showLocalCompileDialog} onOpenChange={setShowLocalCompileDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Terminal className="h-5 w-5" />
+              Ready to Compile!
+            </DialogTitle>
+            <DialogDescription>
+              Java {javaVersion} • Minecraft {mcVersion}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
+                <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold shrink-0">
+                  1
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">Extract the ZIP file</p>
+                  <p className="text-xs text-muted-foreground">
+                    Unzip the downloaded file to any folder
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                <div className="h-6 w-6 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                  2
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">Run the build script</p>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p><strong>Windows:</strong> Double-click <code className="bg-background px-1 rounded">BUILD.bat</code></p>
+                    <p><strong>Mac/Linux:</strong> Run <code className="bg-background px-1 rounded">./build.sh</code></p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
+                <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold shrink-0">
+                  3
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">Get your JAR!</p>
+                  <p className="text-xs text-muted-foreground">
+                    Find <code className="bg-background px-1 rounded">{pluginName}.jar</code> in the <code className="bg-background px-1 rounded">target</code> folder
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-muted/50 border rounded-lg p-3">
+              <p className="text-sm font-medium text-foreground mb-2">Requirements:</p>
+              <ul className="text-xs text-muted-foreground space-y-1">
+                <li>• <a href="https://adoptium.net/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Java {javaVersion}</a></li>
+                <li>• <a href="https://maven.apache.org/download.cgi" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Maven</a></li>
+              </ul>
             </div>
           </div>
         </DialogContent>
