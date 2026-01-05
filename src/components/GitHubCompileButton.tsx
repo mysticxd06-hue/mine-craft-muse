@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -99,6 +101,9 @@ const PAPER_SUPPORTED_VERSIONS: MinecraftVersion[] = [
 ];
 
 export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButtonProps) {
+  const navigate = useNavigate();
+  const { user, loading, profile } = useAuthContext();
+
   const [showDialog, setShowDialog] = useState(false);
   const [showCompileDialog, setShowCompileDialog] = useState(false);
   const [showLocalCompileDialog, setShowLocalCompileDialog] = useState(false);
@@ -605,59 +610,29 @@ Copy this JAR to your Minecraft server's \`plugins\` folder!
     }
   };
 
-  // Direct compile - returns JAR file
+  // Compile: download a build-ready package (local compile)
   const handleDirectCompile = async () => {
-    setIsBuilding(true);
-    setBuildErrors([]);
-    toast.info(`Building ${pluginName} with ${BUILD_TOOL_LABELS[buildTool].name}...`);
+    if (loading) return;
 
-    try {
-      const { data, error } = await supabase.functions.invoke('build-plugin', {
-        body: {
-          files: pluginFiles,
-          pluginName,
-          javaVersion,
-          mcVersion,
-          serverAPI,
-          buildTool,
-        },
-      });
-
-      if (error) {
-        toast.error(`Build failed: ${error.message}`);
-        return;
-      }
-
-      if (!data.success) {
-        setBuildErrors(data.errors || [data.message]);
-        setShowBuildErrorDialog(true);
-        toast.error('Build failed - see errors');
-        return;
-      }
-
-      // Decode base64 JAR and download
-      const binaryString = atob(data.jarBase64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const blob = new Blob([bytes], { type: 'application/java-archive' });
-      
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = data.fileName || `${pluginName}.jar`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      toast.success(`${pluginName}.jar downloaded!`);
-    } catch (err) {
-      toast.error(`Build error: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    } finally {
-      setIsBuilding(false);
+    if (!user) {
+      toast.error("Sign in required to compile");
+      navigate('/auth');
+      return;
     }
+
+    if ((profile as any)?.is_banned) {
+      toast.error("Account restricted");
+      return;
+    }
+
+    // True server-side Java compilation isn't available in this environment.
+    // Instead, we provide a one-click local compile package that produces the final JAR.
+    if (serverAPI === "buildtools") {
+      await handleBuildToolsExport();
+      return;
+    }
+
+    await handleLocalCompileExport();
   };
 
   const handleCopy = async (text: string) => {
@@ -963,9 +938,9 @@ Copy this to your server's \`plugins\` folder!
           <DropdownMenuSeparator />
           
           {/* COMPILE BUTTON - Primary action */}
-          <DropdownMenuItem onClick={handleDirectCompile} className="font-medium">
+          <DropdownMenuItem onClick={handleDirectCompile} className="font-medium" disabled={!user || loading}>
             <Hammer className="h-4 w-4 mr-2 text-primary" />
-            Compile → {pluginName}.jar
+            {user ? "Download compile package (builds a JAR)" : "Sign in to compile"}
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />

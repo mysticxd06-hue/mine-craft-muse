@@ -8,6 +8,9 @@ interface UserProfile {
   display_name: string | null;
   credits: number;
   role: 'admin' | 'user';
+  is_banned?: boolean;
+  banned_at?: string | null;
+  ban_reason?: string | null;
 }
 
 interface AuthContextType {
