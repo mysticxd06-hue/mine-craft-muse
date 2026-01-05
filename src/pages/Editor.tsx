@@ -9,7 +9,7 @@ import { GitHubCompileButton } from "@/components/GitHubCompileButton";
 import { ProjectHistoryPanel } from "@/components/ProjectHistoryPanel";
 import { parsePluginFiles, hasPluginFiles, PluginFile, exportPluginAsZip, downloadZip, getPluginName } from "@/lib/pluginExport";
 import { Button } from "@/components/ui/button";
-import { Blocks, Download, ArrowLeft, FolderTree, FileCode, Save, History, Sparkles } from "lucide-react";
+import { Moon, Download, ArrowLeft, FolderTree, FileCode, Save, History } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface LocationState {
@@ -27,7 +27,6 @@ export default function Editor() {
   const [pluginFiles, setPluginFiles] = useState<PluginFile[]>([]);
   const [showHistory, setShowHistory] = useState(false);
 
-  // Initialize with passed state
   useEffect(() => {
     if (state?.messages) {
       for (const msg of state.messages) {
@@ -38,7 +37,6 @@ export default function Editor() {
     }
   }, []);
 
-  // Extract plugin files from messages
   useEffect(() => {
     const allFiles: PluginFile[] = [];
     for (const msg of messages) {
@@ -68,7 +66,7 @@ export default function Editor() {
     if (pluginFiles.length === 0) {
       toast({
         title: "No files to export",
-        description: "Ask the AI to generate a plugin first.",
+        description: "Ask Lunar to generate a plugin first.",
         variant: "destructive",
       });
       return;
@@ -123,38 +121,26 @@ export default function Editor() {
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Top Header */}
-      <header className="h-14 border-b border-border bg-card/50 backdrop-blur-xl flex items-center px-4 gap-4 shrink-0 relative z-50">
-        {/* Left side */}
-        <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group">
-          <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+      <header className="h-14 border-b border-border bg-card flex items-center px-4 gap-4 shrink-0">
+        <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" />
         </Link>
         
-        <div className="h-6 w-px bg-border" />
+        <div className="h-5 w-px bg-border" />
         
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="absolute inset-0 bg-primary/30 blur-md" />
-            <div className="relative h-8 w-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
-              <Blocks className="h-4 w-4 text-primary-foreground" />
-            </div>
-          </div>
-          <div>
-            <h1 className="font-display font-semibold text-foreground text-sm tracking-wide">
-              {pluginFiles.length > 0 ? getPluginName(pluginFiles) : "New Plugin"}
-            </h1>
-            <p className="text-xs text-muted-foreground font-mono">
-              {pluginFiles.length} file{pluginFiles.length !== 1 ? "s" : ""}
-            </p>
-          </div>
+        <div className="flex items-center gap-2">
+          <Moon className="h-5 w-5 text-primary" />
+          <span className="font-display text-foreground">
+            {pluginFiles.length > 0 ? getPluginName(pluginFiles) : "New Plugin"}
+          </span>
         </div>
 
-        {/* Right side - Actions */}
         <div className="ml-auto flex items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setShowHistory(!showHistory)}
-            className={showHistory ? "bg-muted" : ""}
+            className={showHistory ? "bg-secondary" : ""}
           >
             <History className="h-4 w-4 mr-1.5" />
             History
@@ -169,7 +155,7 @@ export default function Editor() {
             Save
           </Button>
           
-          <div className="h-6 w-px bg-border mx-1" />
+          <div className="h-5 w-px bg-border mx-1" />
           
           <Button
             variant="outline"
@@ -188,9 +174,9 @@ export default function Editor() {
       </header>
 
       {/* Main Content - 3 Panel Layout */}
-      <div className="flex-1 flex min-h-0 relative">
+      <div className="flex-1 flex min-h-0">
         {/* Left Panel - Chat or History */}
-        <div className="w-96 border-r border-border flex flex-col shrink-0 bg-card/30 backdrop-blur-sm">
+        <div className="w-96 border-r border-border flex flex-col shrink-0 bg-card/50">
           {showHistory ? (
             <ProjectHistoryPanel
               projects={projects}
@@ -208,10 +194,10 @@ export default function Editor() {
         </div>
 
         {/* Middle Panel - File Tree */}
-        <div className="w-64 border-r border-border bg-card/20 flex flex-col shrink-0">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-secondary/30">
+        <div className="w-64 border-r border-border bg-card/30 flex flex-col shrink-0">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
             <FolderTree className="h-4 w-4 text-primary" />
-            <span className="text-sm font-display font-medium text-foreground tracking-wide">Files</span>
+            <span className="text-sm font-medium text-foreground">Files</span>
           </div>
           <div className="flex-1 overflow-auto">
             <FileTree
@@ -227,29 +213,18 @@ export default function Editor() {
           {selectedPluginFile ? (
             <CodeViewer file={selectedPluginFile} />
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8 relative">
-              {/* Background decoration */}
-              <div className="absolute inset-0 bg-grid-dense opacity-20" />
-              <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/5 rounded-full blur-[100px]" />
-              <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-accent/5 rounded-full blur-[80px]" />
-              
-              <div className="relative z-10">
-                <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center mb-6 mx-auto">
-                  {pluginFiles.length === 0 ? (
-                    <Sparkles className="h-10 w-10 text-primary animate-glow-pulse" />
-                  ) : (
-                    <FileCode className="h-10 w-10 text-muted-foreground" />
-                  )}
-                </div>
-                <h3 className="font-display font-semibold text-xl text-foreground mb-3 tracking-wide">
-                  {pluginFiles.length === 0 ? "Ready to Create" : "Select a File"}
-                </h3>
-                <p className="text-muted-foreground text-sm max-w-md font-body leading-relaxed">
-                  {pluginFiles.length === 0 
-                    ? "Start chatting with the AI to generate your Minecraft plugin code."
-                    : "Click on a file in the tree to view its contents."}
-                </p>
+            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+              <div className="h-16 w-16 rounded-2xl bg-secondary border border-border flex items-center justify-center mb-4">
+                <FileCode className="h-8 w-8 text-muted-foreground" />
               </div>
+              <h3 className="font-display text-lg text-foreground mb-2">
+                {pluginFiles.length === 0 ? "Ready to Create" : "Select a File"}
+              </h3>
+              <p className="text-muted-foreground text-sm max-w-md">
+                {pluginFiles.length === 0 
+                  ? "Start chatting with Lunar to generate your Minecraft plugin."
+                  : "Click on a file in the tree to view its contents."}
+              </p>
             </div>
           )}
         </div>
