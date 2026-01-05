@@ -25,10 +25,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Github, Download, ExternalLink, Copy, Check, ChevronDown, Loader2, AlertCircle, CheckCircle, Package, Terminal } from "lucide-react";
+import { Github, Download, ExternalLink, Copy, Check, ChevronDown, Loader2, AlertCircle, CheckCircle, Package, Terminal, Hammer, Wrench } from "lucide-react";
 import { PluginFile, getPluginName } from "@/lib/pluginExport";
 import { supabase } from "@/integrations/supabase/client";
 import JSZip from "jszip";
+import { toast } from "sonner";
 
 interface GitHubCompileButtonProps {
   pluginFiles: PluginFile[];
@@ -48,6 +49,13 @@ type MinecraftVersion =
   | "1.18.2" | "1.19.4" | "1.20.4" | "1.20.6" 
   | "1.21" | "1.21.1" | "1.21.4";
 type ServerAPI = "spigot" | "paper" | "buildtools";
+type BuildTool = "maven" | "gradle" | "javac";
+
+const BUILD_TOOL_LABELS: Record<BuildTool, { name: string; description: string }> = {
+  "maven": { name: "Maven", description: "Apache Maven - Most common for plugins" },
+  "gradle": { name: "Gradle", description: "Gradle - Modern, fast builds" },
+  "javac": { name: "javac", description: "Direct Java compiler - Simple plugins" },
+};
 
 // Java compatibility based on Minecraft version requirements
 const MC_JAVA_COMPATIBILITY: Record<MinecraftVersion, JavaVersion[]> = {
@@ -105,8 +113,12 @@ export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButt
   const [javaVersion, setJavaVersion] = useState<JavaVersion>("21");
   const [mcVersion, setMcVersion] = useState<MinecraftVersion>("1.21.4");
   const [serverAPI, setServerAPI] = useState<ServerAPI>("paper");
+  const [buildTool, setBuildTool] = useState<BuildTool>("maven");
   const [showBuildToolsDialog, setShowBuildToolsDialog] = useState(false);
   const [isBuildToolsExporting, setIsBuildToolsExporting] = useState(false);
+  const [isBuilding, setIsBuilding] = useState(false);
+  const [buildErrors, setBuildErrors] = useState<string[]>([]);
+  const [showBuildErrorDialog, setShowBuildErrorDialog] = useState(false);
 
   const pluginName = getPluginName(pluginFiles);
 
@@ -593,6 +605,61 @@ Copy this JAR to your Minecraft server's \`plugins\` folder!
     }
   };
 
+  // Direct compile - returns JAR file
+  const handleDirectCompile = async () => {
+    setIsBuilding(true);
+    setBuildErrors([]);
+    toast.info(`Building ${pluginName} with ${BUILD_TOOL_LABELS[buildTool].name}...`);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('build-plugin', {
+        body: {
+          files: pluginFiles,
+          pluginName,
+          javaVersion,
+          mcVersion,
+          serverAPI,
+          buildTool,
+        },
+      });
+
+      if (error) {
+        toast.error(`Build failed: ${error.message}`);
+        return;
+      }
+
+      if (!data.success) {
+        setBuildErrors(data.errors || [data.message]);
+        setShowBuildErrorDialog(true);
+        toast.error('Build failed - see errors');
+        return;
+      }
+
+      // Decode base64 JAR and download
+      const binaryString = atob(data.jarBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: 'application/java-archive' });
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = data.fileName || `${pluginName}.jar`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(`${pluginName}.jar downloaded!`);
+    } catch (err) {
+      toast.error(`Build error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsBuilding(false);
+    }
+  };
+
   const handleCopy = async (text: string) => {
     await navigator.clipboard.writeText(text);
     setCopied(true);
@@ -868,7 +935,7 @@ Copy this to your server's \`plugins\` folder!
     }
   };
 
-  const isLoading = isExporting || isCompiling || isLocalExporting || isBuildToolsExporting;
+  const isLoading = isExporting || isCompiling || isLocalExporting || isBuildToolsExporting || isBuilding;
 
   return (
     <>
@@ -883,17 +950,44 @@ Copy this to your server's \`plugins\` folder!
             {isLoading ? (
               <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
             ) : (
-              <Package className="h-4 w-4 mr-1.5" />
+              <Hammer className="h-4 w-4 mr-1.5" />
             )}
-            {isCompiling ? "Checking..." : isExporting || isLocalExporting ? "Preparing..." : "Build"}
+            {isBuilding ? "Compiling..." : isCompiling ? "Checking..." : isExporting || isLocalExporting ? "Preparing..." : "Compile"}
             <ChevronDown className="h-3 w-3 ml-1" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="end" className="w-64">
           <DropdownMenuLabel className="text-xs text-muted-foreground">
-            {SERVER_API_LABELS[serverAPI]} • Java {javaVersion} • MC {mcVersion}
+            {BUILD_TOOL_LABELS[buildTool].name} • {SERVER_API_LABELS[serverAPI]} • Java {javaVersion}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
+          
+          {/* COMPILE BUTTON - Primary action */}
+          <DropdownMenuItem onClick={handleDirectCompile} className="font-medium">
+            <Hammer className="h-4 w-4 mr-2 text-primary" />
+            Compile → {pluginName}.jar
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+          
+          {/* Build Tool Selection */}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Wrench className="h-4 w-4 mr-2" />
+              <span>Build Tool: {BUILD_TOOL_LABELS[buildTool].name}</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {(Object.keys(BUILD_TOOL_LABELS) as BuildTool[]).map((tool) => (
+                <DropdownMenuItem key={tool} onClick={() => setBuildTool(tool)}>
+                  <Check className={`h-4 w-4 mr-2 ${buildTool === tool ? "opacity-100" : "opacity-0"}`} />
+                  <div className="flex flex-col">
+                    <span>{BUILD_TOOL_LABELS[tool].name}</span>
+                    <span className="text-xs text-muted-foreground">{BUILD_TOOL_LABELS[tool].description}</span>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
@@ -958,6 +1052,8 @@ Copy this to your server's \`plugins\` folder!
           </DropdownMenuSub>
 
           <DropdownMenuSeparator />
+          
+          <DropdownMenuLabel className="text-xs text-muted-foreground">Other Options</DropdownMenuLabel>
 
           {serverAPI === "buildtools" ? (
             <DropdownMenuItem onClick={handleBuildToolsExport}>
@@ -970,8 +1066,6 @@ Copy this to your server's \`plugins\` folder!
               Download & Compile Locally
             </DropdownMenuItem>
           )}
-
-          <DropdownMenuSeparator />
 
           <DropdownMenuItem onClick={handleJDoodleCompile}>
             <CheckCircle className="h-4 w-4 mr-2" />
@@ -1263,6 +1357,44 @@ Copy this to your server's \`plugins\` folder!
                 <li>• <a href="https://git-scm.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Git</a> (required by BuildTools)</li>
               </ul>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Build Error Dialog */}
+      <Dialog open={showBuildErrorDialog} onOpenChange={setShowBuildErrorDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              Build Failed
+            </DialogTitle>
+            <DialogDescription>
+              {buildTool.toUpperCase()} compilation failed with the following errors:
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 mt-4 max-h-64 overflow-y-auto">
+            {buildErrors.map((error, index) => (
+              <div
+                key={index}
+                className="p-3 rounded-lg bg-destructive/10 border border-destructive/20"
+              >
+                <pre className="text-xs text-muted-foreground overflow-x-auto whitespace-pre-wrap">
+                  {error}
+                </pre>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-muted/50 border rounded-lg p-3 mt-4">
+            <p className="text-sm font-medium text-foreground mb-2">Troubleshooting:</p>
+            <ul className="text-xs text-muted-foreground space-y-1">
+              <li>• Check that class names match file names</li>
+              <li>• Ensure all Java files have package declarations</li>
+              <li>• Verify balanced braces and parentheses</li>
+              <li>• Use "Check Syntax" for detailed error info</li>
+            </ul>
           </div>
         </DialogContent>
       </Dialog>
