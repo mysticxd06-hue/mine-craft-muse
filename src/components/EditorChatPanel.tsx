@@ -1,7 +1,7 @@
 import { useRef, useEffect } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
-import { Pickaxe } from "lucide-react";
+import { Sparkles, Zap } from "lucide-react";
 import { Message, getMessageText } from "@/hooks/useChat";
 
 interface EditorChatPanelProps {
@@ -20,35 +20,52 @@ export function EditorChatPanel({ messages, onSend, isLoading }: EditorChatPanel
   }, [messages, isLoading]);
 
   return (
-    <div className="flex flex-col h-full bg-card">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-2 p-3 border-b border-border bg-secondary/50 shrink-0">
-        <div className="flex h-8 w-8 items-center justify-center rounded bg-primary text-primary-foreground">
-          <Pickaxe className="h-4 w-4" />
+      <div className="flex items-center gap-3 p-4 border-b border-border bg-secondary/30 shrink-0">
+        <div className="relative">
+          <div className="absolute inset-0 bg-primary/30 blur-lg" />
+          <div className="relative h-10 w-10 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center shadow-lg shadow-primary/20">
+            <Sparkles className="h-5 w-5 text-primary-foreground" />
+          </div>
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-display font-semibold text-sm text-foreground truncate">Plugin Craftsman</h3>
+          <h3 className="font-display font-semibold text-sm text-foreground tracking-wide">AI Assistant</h3>
+          <p className="text-xs text-muted-foreground font-mono">Plugin Generator</p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 bg-primary rounded-full animate-pulse" />
-          <span className="text-xs text-muted-foreground">Online</span>
+        <div className="flex items-center gap-2 px-2 py-1 bg-primary/10 rounded-full border border-primary/20">
+          <Zap className="h-3 w-3 text-primary" />
+          <span className="text-xs text-primary font-mono">Ready</span>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto" ref={scrollRef}>
-        <div className="divide-y divide-border/50">
+      <div className="flex-1 overflow-y-auto bg-gradient-to-b from-transparent to-background/50" ref={scrollRef}>
+        <div className="divide-y divide-border/30">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-center p-4">
-              <div className="h-12 w-12 rounded-lg bg-primary/20 flex items-center justify-center mb-3">
-                <Pickaxe className="h-6 w-6 text-primary" />
+            <div className="flex flex-col items-center justify-center h-80 text-center p-6 relative">
+              {/* Background decoration */}
+              <div className="absolute inset-0 bg-grid-dense opacity-20" />
+              
+              <div className="relative z-10">
+                <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center mb-4 mx-auto animate-pulse-glow">
+                  <Sparkles className="h-8 w-8 text-primary" />
+                </div>
+                <h4 className="font-display font-semibold text-lg text-foreground mb-2 tracking-wide">
+                  Ready to Create
+                </h4>
+                <p className="text-muted-foreground text-sm max-w-[240px] font-body leading-relaxed">
+                  Describe your Minecraft plugin idea and I'll generate the complete code for you.
+                </p>
+                
+                <div className="flex flex-wrap gap-2 justify-center mt-6">
+                  {["Commands", "Events", "Configs"].map((tag) => (
+                    <span key={tag} className="px-2 py-1 text-xs font-mono text-primary/80 bg-primary/10 rounded border border-primary/20">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
-              <h4 className="font-display font-semibold text-foreground mb-1">
-                Ready to craft!
-              </h4>
-              <p className="text-muted-foreground text-xs max-w-[200px]">
-                Tell me what plugin you want to create
-              </p>
             </div>
           ) : (
             messages.map((message, index) => (
@@ -60,7 +77,7 @@ export function EditorChatPanel({ messages, onSend, isLoading }: EditorChatPanel
       </div>
 
       {/* Input */}
-      <div className="shrink-0 border-t border-border">
+      <div className="shrink-0">
         <ChatInput onSend={onSend} disabled={isLoading} compact />
       </div>
     </div>

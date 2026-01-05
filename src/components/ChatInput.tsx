@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Send, ImagePlus, X } from "lucide-react";
+import { Send, ImagePlus, X, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
@@ -13,6 +13,7 @@ export function ChatInput({ onSend, disabled, compact }: ChatInputProps) {
   const [input, setInput] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [isFocused, setIsFocused] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -33,7 +34,6 @@ export function ChatInput({ onSend, disabled, compact }: ChatInputProps) {
       return;
     }
 
-    // Create preview
     const reader = new FileReader();
     reader.onload = (event) => {
       const result = event.target?.result as string;
@@ -55,8 +55,9 @@ export function ChatInput({ onSend, disabled, compact }: ChatInputProps) {
     <form 
       onSubmit={handleSubmit} 
       className={cn(
-        "flex flex-col gap-2 border-t border-border bg-card/50",
-        compact ? "p-2" : "gap-3 p-4"
+        "flex flex-col gap-3 border-t border-border bg-card/30 backdrop-blur-sm transition-all",
+        compact ? "p-3" : "p-4",
+        isFocused && "border-t-primary/50"
       )}
     >
       {imagePreview && (
@@ -64,12 +65,12 @@ export function ChatInput({ onSend, disabled, compact }: ChatInputProps) {
           <img 
             src={imagePreview} 
             alt="Upload preview" 
-            className="h-16 w-16 object-cover rounded border border-border"
+            className="h-20 w-20 object-cover rounded-lg border border-border shadow-lg"
           />
           <button
             type="button"
             onClick={removeImage}
-            className="absolute -top-1.5 -right-1.5 h-5 w-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center hover:bg-destructive/90"
+            className="absolute -top-2 -right-2 h-6 w-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center hover:bg-destructive/90 shadow-lg transition-transform hover:scale-110"
           >
             <X className="h-3 w-3" />
           </button>
@@ -86,26 +87,45 @@ export function ChatInput({ onSend, disabled, compact }: ChatInputProps) {
         />
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size={compact ? "default" : "lg"}
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled}
-          className="shrink-0"
+          className="shrink-0 border border-border hover:border-primary/50 hover:bg-primary/5"
         >
           <ImagePlus className={compact ? "h-4 w-4" : "h-5 w-5"} />
         </Button>
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={imageBase64 ? "Describe what plugin you want..." : "Ask about Minecraft plugins..."}
-          disabled={disabled}
-          className={cn(
-            "flex-1 bg-secondary border border-border rounded text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent font-mono text-sm transition-all",
-            compact ? "px-3 py-2" : "px-4 py-3"
+        <div className={cn(
+          "flex-1 relative rounded-lg transition-all",
+          isFocused && "ring-2 ring-primary/30"
+        )}>
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder={imageBase64 ? "Describe your plugin idea..." : "What plugin do you want to create?"}
+            disabled={disabled}
+            className={cn(
+              "w-full bg-background/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 font-mono text-sm transition-all",
+              compact ? "px-4 py-2.5" : "px-4 py-3"
+            )}
+          />
+          {!input && !imageBase64 && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-muted-foreground pointer-events-none">
+              <Sparkles className="h-3 w-3" />
+              <span className="text-xs font-mono">AI</span>
+            </div>
           )}
-        />
-        <Button type="submit" disabled={disabled || (!input.trim() && !imageBase64)} size={compact ? "default" : "lg"}>
+        </div>
+        <Button 
+          type="submit" 
+          disabled={disabled || (!input.trim() && !imageBase64)} 
+          size={compact ? "default" : "lg"}
+          variant="hero"
+          className="shrink-0"
+        >
           <Send className={compact ? "h-4 w-4" : "h-5 w-5"} />
         </Button>
       </div>

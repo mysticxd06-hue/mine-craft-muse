@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Bot, User, Download, ImageIcon } from "lucide-react";
+import { Bot, User, Download, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { hasPluginFiles, parsePluginFiles, exportPluginAsZip, downloadZip, getPluginName } from "@/lib/pluginExport";
 import { toast } from "@/hooks/use-toast";
@@ -14,10 +14,8 @@ interface ChatMessageProps {
 export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
   const isAssistant = role === "assistant";
   
-  // Get text content
   const textContent = typeof content === 'string' ? content : getMessageText({ role, content });
   
-  // Check for image in user messages
   const imageUrl = typeof content !== 'string' 
     ? content.find(c => c.type === 'image_url')?.image_url?.url 
     : null;
@@ -40,7 +38,6 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
     }
   };
 
-  // Clean content for display (remove file markers)
   const displayContent = textContent
     .replace(/===FILE:.+?===\n/g, '\n**📄 ')
     .replace(/===ENDFILE===/g, '\n---');
@@ -48,61 +45,67 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
   return (
     <div
       className={cn(
-        "flex gap-3 p-4 animate-fade-in",
-        isAssistant ? "bg-secondary/50" : "bg-transparent"
+        "flex gap-4 p-4 animate-fade-in",
+        isAssistant ? "bg-secondary/30" : "bg-transparent"
       )}
     >
       <div
         className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded",
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all",
           isAssistant
-            ? "bg-primary text-primary-foreground"
-            : "bg-muted text-muted-foreground"
+            ? "bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/20"
+            : "bg-muted border border-border"
         )}
       >
-        {isAssistant ? <Bot className="h-5 w-5" /> : <User className="h-5 w-5" />}
+        {isAssistant ? (
+          <Sparkles className="h-4 w-4 text-primary-foreground" />
+        ) : (
+          <User className="h-4 w-4 text-muted-foreground" />
+        )}
       </div>
-      <div className="flex-1 space-y-2 overflow-hidden">
-        {/* Show image if present */}
+      <div className="flex-1 space-y-3 overflow-hidden min-w-0">
         {imageUrl && (
-          <div className="mb-2">
+          <div className="mb-3">
             <img 
               src={imageUrl} 
               alt="Uploaded reference" 
-              className="max-h-32 rounded border border-border"
+              className="max-h-40 rounded-lg border border-border shadow-lg"
             />
           </div>
         )}
         
         {canExport && (
-          <Button onClick={handleExport} size="sm" className="mb-2 gap-2">
+          <Button onClick={handleExport} size="sm" variant="cyber" className="mb-3 gap-2">
             <Download className="h-4 w-4" />
             Download Plugin ZIP
           </Button>
         )}
         <div className="prose prose-invert max-w-none">
           {isLoading ? (
-            <div className="flex items-center gap-1">
-              <span className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-              <span className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-              <span className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+            <div className="flex items-center gap-2 py-2">
+              <div className="flex gap-1">
+                <span className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+              <span className="text-xs text-muted-foreground font-mono">Generating...</span>
             </div>
           ) : (
-            <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
+            <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-foreground/90">
               {displayContent.split("```").map((part, index) => {
                 if (index % 2 === 1) {
                   const [lang, ...code] = part.split("\n");
                   return (
                     <pre
                       key={index}
-                      className="my-3 overflow-x-auto rounded bg-obsidian p-4 border border-border"
+                      className="my-4 overflow-x-auto rounded-lg bg-background/80 border border-border p-4 shadow-inner"
                     >
                       {lang && (
-                        <div className="mb-2 text-xs text-muted-foreground uppercase tracking-wider">
+                        <div className="mb-3 text-xs text-primary font-display uppercase tracking-wider">
                           {lang}
                         </div>
                       )}
-                      <code className="text-diamond">{code.join("\n")}</code>
+                      <code className="text-neon-cyan">{code.join("\n")}</code>
                     </pre>
                   );
                 }
