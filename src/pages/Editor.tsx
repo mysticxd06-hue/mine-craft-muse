@@ -4,7 +4,7 @@ import { useChat, Message } from "@/hooks/useChat";
 import { EditorChatPanel } from "@/components/EditorChatPanel";
 import { FileTree } from "@/components/FileTree";
 import { CodeViewer } from "@/components/CodeViewer";
-import { CompileDropdown } from "@/components/CompileDropdown";
+import { GitHubCompileButton } from "@/components/GitHubCompileButton";
 import { parsePluginFiles, hasPluginFiles, PluginFile, exportPluginAsZip, downloadZip, getPluginName } from "@/lib/pluginExport";
 import { Button } from "@/components/ui/button";
 import { Blocks, Download, ArrowLeft, FolderTree, FileCode } from "lucide-react";
@@ -107,7 +107,7 @@ export default function Editor() {
             <Download className="h-4 w-4 mr-1.5" />
             Export
           </Button>
-          <CompileDropdown 
+          <GitHubCompileButton 
             pluginFiles={pluginFiles} 
             disabled={pluginFiles.length === 0} 
           />
