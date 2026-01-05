@@ -86,12 +86,27 @@ serve(async (req) => {
       });
     }
 
-    const supabaseAuth = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    // Create client with the user's token for proper session validation
+    const supabaseAuth = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+      global: {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    });
+    
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
 
     if (authError || !user) {
       console.error("Auth error:", authError);
-      return new Response(JSON.stringify({ error: "Invalid authentication" }), {
+      
+      // Distinguish between expired sessions and invalid tokens
+      const isSessionError = authError?.message?.includes('session') || 
+                            authError?.name === 'AuthSessionMissingError';
+      
+      return new Response(JSON.stringify({ 
+        error: isSessionError 
+          ? "Your session has expired. Please log out and log back in." 
+          : "Invalid authentication" 
+      }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
