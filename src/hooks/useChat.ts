@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface Message {
   role: 'user' | 'assistant';
@@ -13,6 +14,12 @@ export interface MessageContent {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
+export interface SendMessageResult {
+  success: boolean;
+  error?: string;
+  creditError?: boolean;
+}
+
 // Helper to get text content from a message
 export function getMessageText(message: Message): string {
   if (typeof message.content === 'string') return message.content;
@@ -24,7 +31,7 @@ export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const sendMessage = useCallback(async (content: string, imageBase64?: string) => {
+  const sendMessage = useCallback(async (content: string, imageBase64?: string): Promise<SendMessageResult> => {
     // Build message content
     let messageContent: string | MessageContent[];
     if (imageBase64) {
@@ -56,17 +63,36 @@ export function useChat() {
     };
 
     try {
+      // Get the current session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setMessages(prev => prev.slice(0, -1)); // Remove the user message
+        return { success: false, error: 'Please sign in to use the AI assistant', creditError: false };
+      }
+
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ messages: [...messages, userMessage] }),
       });
 
       if (!resp.ok) {
         const errorData = await resp.json().catch(() => ({}));
+        
+        // Handle credit-related errors
+        if (resp.status === 402) {
+          setMessages(prev => prev.slice(0, -1)); // Remove the user message
+          return { success: false, error: errorData.error || 'Insufficient credits', creditError: true };
+        }
+        
+        if (resp.status === 401) {
+          setMessages(prev => prev.slice(0, -1));
+          return { success: false, error: 'Please sign in to use the AI assistant', creditError: false };
+        }
+        
         throw new Error(errorData.error || `Request failed: ${resp.status}`);
       }
 
@@ -126,6 +152,8 @@ export function useChat() {
           } catch { /* ignore */ }
         }
       }
+      
+      return { success: true };
     } catch (error) {
       console.error('Chat error:', error);
       setMessages(prev => [
@@ -135,6 +163,7 @@ export function useChat() {
           content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.` 
         }
       ]);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     } finally {
       setIsLoading(false);
     }
