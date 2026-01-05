@@ -8,6 +8,9 @@ interface UserProfile {
   display_name: string | null;
   credits: number;
   role: 'admin' | 'user';
+  is_banned?: boolean;
+  banned_at?: string | null;
+  ban_reason?: string | null;
 }
 
 export function useAuth() {
@@ -47,6 +50,9 @@ export function useAuth() {
         display_name: profileData.display_name,
         credits: creditsData?.credits ?? 0,
         role: (roleData?.role as 'admin' | 'user') ?? 'user',
+        is_banned: (profileData as any).is_banned ?? false,
+        banned_at: (profileData as any).banned_at ?? null,
+        ban_reason: (profileData as any).ban_reason ?? null,
       });
     } catch (error) {
       console.error('Error fetching profile:', error);
