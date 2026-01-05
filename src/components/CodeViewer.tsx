@@ -63,8 +63,8 @@ export function CodeViewer({ file }: CodeViewerProps) {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* File tab header */}
-      <div className="flex items-center border-b border-border bg-card">
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-secondary/50 border-r border-border">
+      <div className="flex items-center border-b border-border bg-card/80 backdrop-blur-sm">
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary/10 to-transparent border-r border-border">
           <File className={cn("h-4 w-4", getLanguageColor(language))} />
           <span className="text-sm font-mono text-foreground">
             {file.path.split("/").pop()}
@@ -76,12 +76,12 @@ export function CodeViewer({ file }: CodeViewerProps) {
             variant="ghost"
             size="sm"
             onClick={handleCopy}
-            className="h-8 px-3 gap-2"
+            className="h-8 px-3 gap-2 hover:bg-primary/10"
           >
             {copied ? (
               <>
                 <Check className="h-4 w-4 text-green-400" />
-                <span className="text-xs">Copied!</span>
+                <span className="text-xs text-green-400">Copied!</span>
               </>
             ) : (
               <>
@@ -97,11 +97,11 @@ export function CodeViewer({ file }: CodeViewerProps) {
       <div className="flex-1 overflow-auto">
         <div className="flex min-h-full">
           {/* Line numbers */}
-          <div className="flex-shrink-0 bg-secondary/30 border-r border-border px-3 py-4 select-none">
+          <div className="flex-shrink-0 bg-card/50 border-r border-border px-3 py-4 select-none">
             {lines.map((_, i) => (
               <div
                 key={i}
-                className="text-xs font-mono text-muted-foreground/50 text-right leading-6 tabular-nums"
+                className="text-xs font-mono text-muted-foreground/40 text-right leading-6 tabular-nums"
               >
                 {i + 1}
               </div>

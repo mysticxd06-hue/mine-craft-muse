@@ -14,9 +14,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['Space Grotesk', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
-        display: ['Inter', 'sans-serif'],
+        display: ['Space Grotesk', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -52,6 +52,11 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        lunar: {
+          purple: "hsl(var(--lunar-purple))",
+          blue: "hsl(var(--lunar-blue))",
+          pink: "hsl(var(--lunar-pink))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -85,12 +90,22 @@ export default {
           from: { opacity: "0", transform: "translateY(20px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        "float": {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+        "pulse-slow": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.7" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.5s ease-out forwards",
         "fade-in-up": "fade-in-up 0.6s ease-out forwards",
+        "float": "float 6s ease-in-out infinite",
+        "pulse-slow": "pulse-slow 4s ease-in-out infinite",
       },
     },
   },
