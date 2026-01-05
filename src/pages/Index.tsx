@@ -1,10 +1,9 @@
-import { useChat } from "@/hooks/useChat";
-import { ChatWindow } from "@/components/ChatWindow";
-import { PluginActions } from "@/components/PluginActions";
+import { useNavigate } from "react-router-dom";
 import { FeatureCard } from "@/components/FeatureCard";
 import { Button } from "@/components/ui/button";
 import { Code2, Blocks, Zap, Book, Github, ArrowDown, Download, Upload } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 const EXAMPLE_PROMPTS = [
   "Create a complete teleport plugin",
@@ -14,26 +13,27 @@ const EXAMPLE_PROMPTS = [
 ];
 
 const Index = () => {
-  const { messages, isLoading, sendMessage, addMessage } = useChat();
+  const navigate = useNavigate();
+  const [inputValue, setInputValue] = useState("");
 
   const handleExampleClick = (prompt: string) => {
-    sendMessage(prompt);
     toast({
-      title: "Generating plugin...",
-      description: "The AI is creating your plugin!",
+      title: "Opening editor...",
+      description: "Starting your plugin project!",
     });
+    navigate("/editor", { state: { initialPrompt: prompt } });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inputValue.trim()) {
+      navigate("/editor", { state: { initialPrompt: inputValue.trim() } });
+    }
   };
 
   const scrollToChat = () => {
     document.getElementById("chat-section")?.scrollIntoView({ behavior: "smooth" });
   };
-
-  const handleImport = (formattedContent: string) => {
-    addMessage({ role: "user", content: "I imported a plugin. Here are the files:" });
-    addMessage({ role: "assistant", content: formattedContent + "\n\nI've loaded your plugin! What would you like me to help you with? I can:\n- Explain how the code works\n- Add new features\n- Fix bugs or improve the code\n- Help you compile and export it" });
-  };
-
-  const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant")?.content;
 
   return (
     <div className="min-h-screen bg-grid">
@@ -134,31 +134,36 @@ const Index = () => {
               Create Your Plugin
             </h2>
             <p className="text-muted-foreground mb-6">
-              Ask the AI to generate a complete plugin, or try one of these examples
+              Describe what plugin you want to create, or try one of these examples
             </p>
-            <div className="flex flex-wrap justify-center gap-2 mb-6">
+            <div className="flex flex-wrap justify-center gap-2 mb-8">
               {EXAMPLE_PROMPTS.map((prompt) => (
                 <button
                   key={prompt}
                   onClick={() => handleExampleClick(prompt)}
-                  disabled={isLoading}
-                  className="px-4 py-2 bg-secondary border border-border rounded text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 transition-all font-mono disabled:opacity-50"
+                  className="px-4 py-2 bg-secondary border border-border rounded text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 transition-all font-mono"
                 >
                   {prompt}
                 </button>
               ))}
             </div>
-            <PluginActions 
-              lastAssistantMessage={lastAssistantMessage}
-              onImport={handleImport}
-            />
           </div>
 
-          <ChatWindow
-            messages={messages}
-            onSend={sendMessage}
-            isLoading={isLoading}
-          />
+          {/* Input Form */}
+          <form onSubmit={handleSubmit} className="max-w-2xl mx-auto">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Describe your Minecraft plugin idea..."
+                className="flex-1 bg-card border border-border rounded-lg px-4 py-4 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent font-mono text-sm transition-all"
+              />
+              <Button type="submit" variant="hero" disabled={!inputValue.trim()}>
+                Start Building
+              </Button>
+            </div>
+          </form>
         </div>
       </section>
 
