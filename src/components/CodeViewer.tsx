@@ -36,6 +36,18 @@ function getLanguageColor(lang: string): string {
   return colors[lang] || "text-muted-foreground";
 }
 
+// HTML escape function to prevent XSS
+function escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  };
+  return text.replace(/[&<>"']/g, (char) => map[char]);
+}
+
 export function CodeViewer({ file }: CodeViewerProps) {
   const [copied, setCopied] = useState(false);
 
@@ -249,14 +261,31 @@ function highlightYaml(line: string): React.ReactNode {
   return line;
 }
 
+// Fixed: Use React elements instead of dangerouslySetInnerHTML to prevent XSS
 function highlightXml(line: string): React.ReactNode {
   const tagPattern = /<\/?[\w-]+/g;
-  const attrPattern = /\s[\w-]+=/g;
-  const valuePattern = /"[^"]*"/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
 
-  let result = line;
-  
-  result = line.replace(tagPattern, (match) => `<span class="text-primary">${match}</span>`);
-  
-  return <span dangerouslySetInnerHTML={{ __html: result }} />;
+  while ((match = tagPattern.exec(line)) !== null) {
+    // Add text before the match
+    if (match.index > lastIndex) {
+      parts.push(line.slice(lastIndex, match.index));
+    }
+    // Add the highlighted tag
+    parts.push(
+      <span key={match.index} className="text-primary">
+        {match[0]}
+      </span>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text after last match
+  if (lastIndex < line.length) {
+    parts.push(line.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? <>{parts}</> : line;
 }

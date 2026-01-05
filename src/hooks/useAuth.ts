@@ -95,14 +95,15 @@ export function useAuth() {
 
   const signUp = async (email: string, password: string, fingerprint: string) => {
     // Check device limit (max 2 accounts per device)
-    const { data: deviceCount } = await supabase.rpc('check_device_limit', {
+    const { data: deviceCount, error: deviceError } = await supabase.rpc('check_device_limit', {
       p_fingerprint: fingerprint,
     });
 
-    if (deviceCount && deviceCount >= 2) {
+    // Use generic error message to prevent enumeration
+    if (deviceError || (deviceCount && deviceCount >= 2)) {
       return { 
         error: { 
-          message: 'Maximum account limit reached for this device. Only 2 accounts are allowed per device.' 
+          message: 'Unable to create account. Please try again or contact support.' 
         } 
       };
     }

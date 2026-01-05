@@ -142,6 +142,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_set_user_role: {
+        Args: {
+          _new_role: Database["public"]["Enums"]["app_role"]
+          _target_user_id: string
+        }
+        Returns: Json
+      }
       check_device_limit: { Args: { p_fingerprint: string }; Returns: number }
       get_user_credits: { Args: { _user_id: string }; Returns: number }
       has_role: {
@@ -150,6 +157,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      use_credit: {
+        Args: { _reason?: string; _user_id: string }
+        Returns: Json
       }
     }
     Enums: {

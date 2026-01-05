@@ -154,12 +154,18 @@ export default function Admin() {
     try {
       const newRole = currentRole === 'admin' ? 'user' : 'admin';
       
-      const { error } = await supabase
-        .from('user_roles')
-        .update({ role: newRole })
-        .eq('user_id', userId);
+      // Use secure RPC function instead of direct database update
+      const { data, error } = await supabase.rpc('admin_set_user_role', {
+        _target_user_id: userId,
+        _new_role: newRole,
+      });
 
       if (error) throw error;
+      
+      const result = data as { success: boolean; error?: string; newRole?: string };
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update role');
+      }
 
       toast({
         title: 'Role updated',
@@ -169,7 +175,7 @@ export default function Admin() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to update role',
+        description: error instanceof Error ? error.message : 'Failed to update role',
         variant: 'destructive',
       });
     } finally {
