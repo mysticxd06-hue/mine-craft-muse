@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Bot, User, Download, Sparkles } from "lucide-react";
+import { Moon, User, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { hasPluginFiles, parsePluginFiles, exportPluginAsZip, downloadZip, getPluginName } from "@/lib/pluginExport";
 import { toast } from "@/hooks/use-toast";
@@ -45,50 +45,47 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
   return (
     <div
       className={cn(
-        "flex gap-4 p-4 animate-fade-in",
+        "flex gap-3 p-4 animate-fade-in",
         isAssistant ? "bg-secondary/30" : "bg-transparent"
       )}
     >
       <div
         className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all",
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
           isAssistant
-            ? "bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/20"
-            : "bg-muted border border-border"
+            ? "bg-primary/10"
+            : "bg-secondary"
         )}
       >
         {isAssistant ? (
-          <Sparkles className="h-4 w-4 text-primary-foreground" />
+          <Moon className="h-4 w-4 text-primary" />
         ) : (
           <User className="h-4 w-4 text-muted-foreground" />
         )}
       </div>
-      <div className="flex-1 space-y-3 overflow-hidden min-w-0">
+      <div className="flex-1 space-y-2 overflow-hidden min-w-0">
         {imageUrl && (
-          <div className="mb-3">
+          <div className="mb-2">
             <img 
               src={imageUrl} 
               alt="Uploaded reference" 
-              className="max-h-40 rounded-lg border border-border shadow-lg"
+              className="max-h-32 rounded-lg border border-border"
             />
           </div>
         )}
         
         {canExport && (
-          <Button onClick={handleExport} size="sm" variant="cyber" className="mb-3 gap-2">
+          <Button onClick={handleExport} size="sm" className="mb-2 gap-2">
             <Download className="h-4 w-4" />
             Download Plugin ZIP
           </Button>
         )}
         <div className="prose prose-invert max-w-none">
           {isLoading ? (
-            <div className="flex items-center gap-2 py-2">
-              <div className="flex gap-1">
-                <span className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-              </div>
-              <span className="text-xs text-muted-foreground font-mono">Generating...</span>
+            <div className="flex items-center gap-2 py-1">
+              <span className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+              <span className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+              <span className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
             </div>
           ) : (
             <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-foreground/90">
@@ -98,14 +95,14 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
                   return (
                     <pre
                       key={index}
-                      className="my-4 overflow-x-auto rounded-lg bg-background/80 border border-border p-4 shadow-inner"
+                      className="my-3 overflow-x-auto rounded-lg bg-background border border-border p-4"
                     >
                       {lang && (
-                        <div className="mb-3 text-xs text-primary font-display uppercase tracking-wider">
+                        <div className="mb-2 text-xs text-primary uppercase tracking-wider">
                           {lang}
                         </div>
                       )}
-                      <code className="text-neon-cyan">{code.join("\n")}</code>
+                      <code className="text-foreground/80">{code.join("\n")}</code>
                     </pre>
                   );
                 }

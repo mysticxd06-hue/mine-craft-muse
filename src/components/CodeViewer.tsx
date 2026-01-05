@@ -26,11 +26,11 @@ function getLanguage(path: string): string {
 
 function getLanguageColor(lang: string): string {
   const colors: Record<string, string> = {
-    java: "text-neon-orange",
-    yaml: "text-neon-yellow",
-    xml: "text-neon-cyan",
-    json: "text-neon-green",
-    groovy: "text-neon-cyan",
+    java: "text-orange-400",
+    yaml: "text-yellow-400",
+    xml: "text-blue-400",
+    json: "text-green-400",
+    groovy: "text-cyan-400",
     properties: "text-muted-foreground",
   };
   return colors[lang] || "text-muted-foreground";
@@ -48,14 +48,11 @@ export function CodeViewer({ file }: CodeViewerProps) {
 
   if (!file) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-background relative">
-        <div className="absolute inset-0 bg-grid-dense opacity-10" />
-        <div className="relative z-10">
-          <div className="h-16 w-16 rounded-2xl bg-muted/50 border border-border flex items-center justify-center mb-4 mx-auto">
-            <Code className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <p className="text-muted-foreground font-display">Select a file to view</p>
+      <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-background">
+        <div className="h-14 w-14 rounded-xl bg-secondary border border-border flex items-center justify-center mb-4">
+          <Code className="h-7 w-7 text-muted-foreground" />
         </div>
+        <p className="text-muted-foreground">Select a file to view</p>
       </div>
     );
   }
@@ -66,14 +63,11 @@ export function CodeViewer({ file }: CodeViewerProps) {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* File tab header */}
-      <div className="flex items-center border-b border-border bg-card/50">
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-secondary/30 border-r border-border">
+      <div className="flex items-center border-b border-border bg-card">
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-secondary/50 border-r border-border">
           <File className={cn("h-4 w-4", getLanguageColor(language))} />
           <span className="text-sm font-mono text-foreground">
             {file.path.split("/").pop()}
-          </span>
-          <span className={cn("text-xs font-display uppercase tracking-wider", getLanguageColor(language))}>
-            {language}
           </span>
         </div>
         <div className="flex-1" />
@@ -86,13 +80,13 @@ export function CodeViewer({ file }: CodeViewerProps) {
           >
             {copied ? (
               <>
-                <Check className="h-4 w-4 text-neon-green" />
-                <span className="text-xs font-mono text-neon-green">Copied!</span>
+                <Check className="h-4 w-4 text-green-400" />
+                <span className="text-xs">Copied!</span>
               </>
             ) : (
               <>
                 <Copy className="h-4 w-4" />
-                <span className="text-xs font-mono">Copy</span>
+                <span className="text-xs">Copy</span>
               </>
             )}
           </Button>
@@ -100,17 +94,10 @@ export function CodeViewer({ file }: CodeViewerProps) {
       </div>
 
       {/* Code content */}
-      <div className="flex-1 overflow-auto relative">
-        {/* Scanline effect */}
-        <div className="absolute inset-0 pointer-events-none opacity-[0.02]" 
-          style={{
-            background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,255,0.03) 2px, rgba(0,255,255,0.03) 4px)'
-          }} 
-        />
-        
+      <div className="flex-1 overflow-auto">
         <div className="flex min-h-full">
           {/* Line numbers */}
-          <div className="flex-shrink-0 bg-secondary/20 border-r border-border px-4 py-4 select-none sticky left-0">
+          <div className="flex-shrink-0 bg-secondary/30 border-r border-border px-3 py-4 select-none">
             {lines.map((_, i) => (
               <div
                 key={i}
@@ -125,7 +112,7 @@ export function CodeViewer({ file }: CodeViewerProps) {
           <pre className="flex-1 p-4 overflow-x-auto">
             <code className={`language-${language} text-sm font-mono leading-6`}>
               {lines.map((line, i) => (
-                <div key={i} className="whitespace-pre text-foreground/85 hover:text-foreground hover:bg-primary/5 transition-colors">
+                <div key={i} className="whitespace-pre text-foreground/85 hover:bg-primary/5 transition-colors">
                   {highlightLine(line, language)}
                 </div>
               ))}
@@ -165,7 +152,7 @@ function highlightJava(line: string): React.ReactNode {
     spans.push({
       start: match.index,
       end: match.index + match[0].length,
-      className: "text-muted-foreground/60 italic",
+      className: "text-muted-foreground italic",
       text: match[0],
     });
   }
@@ -176,7 +163,7 @@ function highlightJava(line: string): React.ReactNode {
       spans.push({
         start: match.index,
         end: match.index + match[0].length,
-        className: "text-neon-green",
+        className: "text-green-400",
         text: match[0],
       });
     }
@@ -188,7 +175,7 @@ function highlightJava(line: string): React.ReactNode {
       spans.push({
         start: match.index,
         end: match.index + match[0].length,
-        className: "text-neon-yellow",
+        className: "text-yellow-400",
         text: match[0],
       });
     }
@@ -200,7 +187,7 @@ function highlightJava(line: string): React.ReactNode {
       spans.push({
         start: match.index,
         end: match.index + match[0].length,
-        className: "text-neon-magenta font-medium",
+        className: "text-primary font-medium",
         text: match[0],
       });
     }
@@ -241,7 +228,7 @@ function highlightYaml(line: string): React.ReactNode {
     return (
       <>
         {line.slice(0, idx)}
-        <span className="text-muted-foreground/60 italic">{comment[0]}</span>
+        <span className="text-muted-foreground italic">{comment[0]}</span>
       </>
     );
   }
@@ -252,9 +239,9 @@ function highlightYaml(line: string): React.ReactNode {
     return (
       <>
         {indent}
-        <span className="text-neon-cyan">{key}</span>
+        <span className="text-primary">{key}</span>
         <span className="text-foreground">{colon}</span>
-        <span className="text-neon-green">{rest}</span>
+        <span className="text-green-400">{rest}</span>
       </>
     );
   }
@@ -269,7 +256,7 @@ function highlightXml(line: string): React.ReactNode {
 
   let result = line;
   
-  result = line.replace(tagPattern, (match) => `<span class="text-neon-cyan">${match}</span>`);
+  result = line.replace(tagPattern, (match) => `<span class="text-primary">${match}</span>`);
   
   return <span dangerouslySetInnerHTML={{ __html: result }} />;
 }
