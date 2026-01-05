@@ -41,20 +41,54 @@ interface CompilationResult {
   output: string;
 }
 
-type JavaVersion = "17" | "21";
-type MinecraftVersion = "1.20.4" | "1.21" | "1.21.4";
-type ServerAPI = "spigot" | "paper";
+type JavaVersion = "8" | "11" | "16" | "17" | "21";
+type MinecraftVersion = 
+  | "1.8.8" | "1.9.4" | "1.10.2" | "1.11.2" | "1.12.2" 
+  | "1.13.2" | "1.14.4" | "1.15.2" | "1.16.5" | "1.17.1" 
+  | "1.18.2" | "1.19.4" | "1.20.4" | "1.20.6" 
+  | "1.21" | "1.21.1" | "1.21.4";
+type ServerAPI = "spigot" | "paper" | "buildtools";
 
+// Java compatibility based on Minecraft version requirements
 const MC_JAVA_COMPATIBILITY: Record<MinecraftVersion, JavaVersion[]> = {
+  "1.8.8": ["8"],
+  "1.9.4": ["8"],
+  "1.10.2": ["8"],
+  "1.11.2": ["8"],
+  "1.12.2": ["8"],
+  "1.13.2": ["8"],
+  "1.14.4": ["8", "11"],
+  "1.15.2": ["8", "11"],
+  "1.16.5": ["8", "11", "16"],
+  "1.17.1": ["16", "17"],
+  "1.18.2": ["17"],
+  "1.19.4": ["17"],
   "1.20.4": ["17", "21"],
+  "1.20.6": ["21"],
   "1.21": ["21"],
+  "1.21.1": ["21"],
   "1.21.4": ["21"],
+};
+
+// Versions grouped for UI display
+const MC_VERSION_GROUPS = {
+  "Latest (1.21.x)": ["1.21.4", "1.21.1", "1.21"] as MinecraftVersion[],
+  "1.20.x": ["1.20.6", "1.20.4"] as MinecraftVersion[],
+  "1.19.x - 1.17.x": ["1.19.4", "1.18.2", "1.17.1"] as MinecraftVersion[],
+  "1.16.x - 1.13.x": ["1.16.5", "1.15.2", "1.14.4", "1.13.2"] as MinecraftVersion[],
+  "Legacy (1.12.x and older)": ["1.12.2", "1.11.2", "1.10.2", "1.9.4", "1.8.8"] as MinecraftVersion[],
 };
 
 const SERVER_API_LABELS: Record<ServerAPI, string> = {
   "spigot": "Spigot API",
-  "paper": "Paper API (Paperweight)",
+  "paper": "Paper API",
+  "buildtools": "Spigot BuildTools",
 };
+
+// Paper API only supports 1.16.5+
+const PAPER_SUPPORTED_VERSIONS: MinecraftVersion[] = [
+  "1.16.5", "1.17.1", "1.18.2", "1.19.4", "1.20.4", "1.20.6", "1.21", "1.21.1", "1.21.4"
+];
 
 export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButtonProps) {
   const [showDialog, setShowDialog] = useState(false);
@@ -71,16 +105,27 @@ export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButt
   const [javaVersion, setJavaVersion] = useState<JavaVersion>("21");
   const [mcVersion, setMcVersion] = useState<MinecraftVersion>("1.21.4");
   const [serverAPI, setServerAPI] = useState<ServerAPI>("paper");
+  const [showBuildToolsDialog, setShowBuildToolsDialog] = useState(false);
+  const [isBuildToolsExporting, setIsBuildToolsExporting] = useState(false);
 
   const pluginName = getPluginName(pluginFiles);
 
   const generatePomXml = (java: JavaVersion, mc: MinecraftVersion, api: ServerAPI) => {
     const isPaper = api === "paper";
+    const isBuildTools = api === "buildtools";
     
+    // For BuildTools, we compile against the full spigot jar (not just API)
     const dependency = isPaper
       ? `        <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
+            <version>${mc}-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>`
+      : isBuildTools
+      ? `        <dependency>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigot</artifactId>
             <version>${mc}-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>`
@@ -561,7 +606,6 @@ git branch -M main
 git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
 git push -u origin main`;
 
-  const isLoading = isExporting || isCompiling || isLocalExporting;
 
   // Check Java compatibility when MC version changes
   const handleMcVersionChange = (mc: MinecraftVersion) => {
@@ -570,7 +614,261 @@ git push -u origin main`;
     if (!compatible.includes(javaVersion)) {
       setJavaVersion(compatible[0]);
     }
+    // Switch to buildtools/spigot if Paper doesn't support this version
+    if (serverAPI === "paper" && !PAPER_SUPPORTED_VERSIONS.includes(mc)) {
+      setServerAPI("spigot");
+    }
   };
+
+  // Generate BuildTools scripts
+  const generateBuildToolsScript = (isWindows: boolean, java: JavaVersion, mc: MinecraftVersion) => {
+    if (isWindows) {
+      return `@echo off
+echo =======================================
+echo   ${pluginName} - Spigot BuildTools Compiler
+echo   Java ${java} / Minecraft ${mc}
+echo =======================================
+echo.
+
+REM Check if Java is installed
+where java >nul 2>nul
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Java is not installed or not in PATH!
+    echo.
+    echo Please install Java ${java}:
+    echo   Download from: https://adoptium.net/
+    echo.
+    pause
+    exit /b 1
+)
+
+REM Create BuildTools directory
+if not exist "buildtools" mkdir buildtools
+cd buildtools
+
+REM Download BuildTools if not present
+if not exist "BuildTools.jar" (
+    echo [INFO] Downloading Spigot BuildTools...
+    curl -o BuildTools.jar https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
+    if %ERRORLEVEL% NEQ 0 (
+        echo [ERROR] Failed to download BuildTools. Please download manually:
+        echo   https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
+        pause
+        exit /b 1
+    )
+)
+
+echo [INFO] Running BuildTools for Minecraft ${mc}...
+echo This may take 10-30 minutes on first run...
+echo.
+
+java -jar BuildTools.jar --rev ${mc}
+
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] BuildTools failed!
+    pause
+    exit /b 1
+)
+
+cd ..
+
+echo.
+echo [INFO] BuildTools complete! Now building plugin...
+echo.
+
+REM Check if Maven is installed
+where mvn >nul 2>nul
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Maven is not installed!
+    echo Please install Maven: https://maven.apache.org/download.cgi
+    pause
+    exit /b 1
+)
+
+call mvn clean package -q
+
+if %ERRORLEVEL% EQU 0 (
+    echo.
+    echo =======================================
+    echo   BUILD SUCCESSFUL!
+    echo =======================================
+    echo.
+    echo Your plugin JAR is at: target\\${pluginName}.jar
+    start "" "target"
+) else (
+    echo [ERROR] Build failed!
+)
+
+pause
+`;
+    } else {
+      return `#!/bin/bash
+
+echo "======================================="
+echo "  ${pluginName} - Spigot BuildTools Compiler"
+echo "  Java ${java} / Minecraft ${mc}"
+echo "======================================="
+echo ""
+
+# Check if Java is installed
+if ! command -v java &> /dev/null; then
+    echo "[ERROR] Java is not installed!"
+    echo "Please install Java ${java}: https://adoptium.net/"
+    exit 1
+fi
+
+# Create BuildTools directory
+mkdir -p buildtools
+cd buildtools
+
+# Download BuildTools if not present
+if [ ! -f "BuildTools.jar" ]; then
+    echo "[INFO] Downloading Spigot BuildTools..."
+    curl -o BuildTools.jar https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
+    if [ $? -ne 0 ]; then
+        echo "[ERROR] Failed to download BuildTools."
+        exit 1
+    fi
+fi
+
+echo "[INFO] Running BuildTools for Minecraft ${mc}..."
+echo "This may take 10-30 minutes on first run..."
+echo ""
+
+java -jar BuildTools.jar --rev ${mc}
+
+if [ $? -ne 0 ]; then
+    echo "[ERROR] BuildTools failed!"
+    exit 1
+fi
+
+cd ..
+
+echo ""
+echo "[INFO] BuildTools complete! Now building plugin..."
+echo ""
+
+# Check if Maven is installed
+if ! command -v mvn &> /dev/null; then
+    echo "[ERROR] Maven is not installed!"
+    echo "Please install Maven: https://maven.apache.org/download.cgi"
+    exit 1
+fi
+
+mvn clean package -q
+
+if [ $? -eq 0 ]; then
+    echo ""
+    echo "======================================="
+    echo "  BUILD SUCCESSFUL!"
+    echo "======================================="
+    echo ""
+    echo "Your plugin JAR is at: target/${pluginName}.jar"
+else
+    echo "[ERROR] Build failed!"
+    exit 1
+fi
+`;
+    }
+  };
+
+  const handleBuildToolsExport = async () => {
+    setIsBuildToolsExporting(true);
+    try {
+      const zip = new JSZip();
+
+      // Add all plugin files
+      for (const file of pluginFiles) {
+        if (file.path.endsWith('plugin.yml')) {
+          const apiVersion = mcVersion.substring(0, 4);
+          const updatedContent = file.content.replace(
+            /api-version:\s*['"]?[\d.]+['"]?/,
+            `api-version: '${apiVersion}'`
+          );
+          zip.file(file.path, updatedContent);
+        } else {
+          zip.file(file.path, file.content);
+        }
+      }
+
+      // Add pom.xml for BuildTools
+      zip.file("pom.xml", generatePomXml(javaVersion, mcVersion, "buildtools"));
+
+      // Add BuildTools scripts
+      zip.file("BUILD_WITH_BUILDTOOLS.bat", generateBuildToolsScript(true, javaVersion, mcVersion));
+      zip.file("build_with_buildtools.sh", generateBuildToolsScript(false, javaVersion, mcVersion));
+
+      // Add README
+      const readme = `# ${pluginName} - Spigot BuildTools Edition
+
+A Minecraft plugin generated with Lunar Sky Studio.
+
+**Target:** Minecraft ${mcVersion} | Java ${javaVersion}
+
+## What is BuildTools?
+
+BuildTools is Spigot's official tool that compiles Spigot/CraftBukkit from source.
+It ensures you have the exact server JAR for your Minecraft version, and installs
+the Spigot API to your local Maven repository for plugin compilation.
+
+## One-Click Compile
+
+### Windows
+Double-click \`BUILD_WITH_BUILDTOOLS.bat\`
+
+### macOS / Linux
+\`\`\`bash
+chmod +x build_with_buildtools.sh
+./build_with_buildtools.sh
+\`\`\`
+
+## What Happens
+
+1. **BuildTools downloads** (first run only)
+2. **BuildTools compiles Spigot ${mcVersion}** (10-30 min first run, cached after)
+3. **Your plugin compiles** against the local Spigot JAR
+4. **Plugin JAR created** in \`target/${pluginName}.jar\`
+
+## Requirements
+
+- **Java ${javaVersion}**: [Download from Adoptium](https://adoptium.net/)
+- **Maven**: [Download](https://maven.apache.org/download.cgi)
+- **Git**: Required by BuildTools - [Download](https://git-scm.com/)
+
+## Why Use BuildTools?
+
+- ✅ Works with ALL Minecraft versions (1.8 - ${mcVersion})
+- ✅ Compiles against full Spigot (not just API)
+- ✅ Access to NMS/CraftBukkit internals
+- ✅ Official Spigot-recommended method
+
+## Output
+
+\`\`\`
+target/${pluginName}.jar
+\`\`\`
+
+Copy this to your server's \`plugins\` folder!
+`;
+      zip.file("README.md", readme);
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${pluginName}-buildtools-mc${mcVersion}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setShowBuildToolsDialog(true);
+    } finally {
+      setIsBuildToolsExporting(false);
+    }
+  };
+
+  const isLoading = isExporting || isCompiling || isLocalExporting || isBuildToolsExporting;
 
   return (
     <>
@@ -602,13 +900,20 @@ git push -u origin main`;
               <span>Server API</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
-              <DropdownMenuItem onClick={() => setServerAPI("paper")}>
+              <DropdownMenuItem 
+                onClick={() => setServerAPI("paper")}
+                disabled={!PAPER_SUPPORTED_VERSIONS.includes(mcVersion)}
+              >
                 <Check className={`h-4 w-4 mr-2 ${serverAPI === "paper" ? "opacity-100" : "opacity-0"}`} />
-                Paper API (Recommended)
+                Paper API {!PAPER_SUPPORTED_VERSIONS.includes(mcVersion) && "(1.16.5+)"}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setServerAPI("spigot")}>
                 <Check className={`h-4 w-4 mr-2 ${serverAPI === "spigot" ? "opacity-100" : "opacity-0"}`} />
                 Spigot API
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setServerAPI("buildtools")}>
+                <Check className={`h-4 w-4 mr-2 ${serverAPI === "buildtools" ? "opacity-100" : "opacity-0"}`} />
+                Spigot BuildTools (All versions)
               </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuSub>
@@ -617,19 +922,20 @@ git push -u origin main`;
             <DropdownMenuSubTrigger>
               <span>Minecraft Version</span>
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              <DropdownMenuItem onClick={() => handleMcVersionChange("1.21.4")}>
-                <Check className={`h-4 w-4 mr-2 ${mcVersion === "1.21.4" ? "opacity-100" : "opacity-0"}`} />
-                1.21.4 (Latest)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleMcVersionChange("1.21")}>
-                <Check className={`h-4 w-4 mr-2 ${mcVersion === "1.21" ? "opacity-100" : "opacity-0"}`} />
-                1.21
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleMcVersionChange("1.20.4")}>
-                <Check className={`h-4 w-4 mr-2 ${mcVersion === "1.20.4" ? "opacity-100" : "opacity-0"}`} />
-                1.20.4
-              </DropdownMenuItem>
+            <DropdownMenuSubContent className="max-h-80 overflow-y-auto">
+              {Object.entries(MC_VERSION_GROUPS).map(([group, versions]) => (
+                <div key={group}>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground py-1">
+                    {group}
+                  </DropdownMenuLabel>
+                  {versions.map((version) => (
+                    <DropdownMenuItem key={version} onClick={() => handleMcVersionChange(version)}>
+                      <Check className={`h-4 w-4 mr-2 ${mcVersion === version ? "opacity-100" : "opacity-0"}`} />
+                      {version}
+                    </DropdownMenuItem>
+                  ))}
+                </div>
+              ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
 
@@ -638,29 +944,32 @@ git push -u origin main`;
               <span>Java Version</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
-              <DropdownMenuItem 
-                onClick={() => setJavaVersion("21")}
-                disabled={!MC_JAVA_COMPATIBILITY[mcVersion].includes("21")}
-              >
-                <Check className={`h-4 w-4 mr-2 ${javaVersion === "21" ? "opacity-100" : "opacity-0"}`} />
-                Java 21 (Recommended)
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => setJavaVersion("17")}
-                disabled={!MC_JAVA_COMPATIBILITY[mcVersion].includes("17")}
-              >
-                <Check className={`h-4 w-4 mr-2 ${javaVersion === "17" ? "opacity-100" : "opacity-0"}`} />
-                Java 17
-              </DropdownMenuItem>
+              {(["21", "17", "16", "11", "8"] as JavaVersion[]).map((java) => (
+                <DropdownMenuItem 
+                  key={java}
+                  onClick={() => setJavaVersion(java)}
+                  disabled={!MC_JAVA_COMPATIBILITY[mcVersion].includes(java)}
+                >
+                  <Check className={`h-4 w-4 mr-2 ${javaVersion === java ? "opacity-100" : "opacity-0"}`} />
+                  Java {java} {java === "21" && "(Latest)"} {java === "8" && "(Legacy)"}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem onClick={handleLocalCompileExport}>
-            <Download className="h-4 w-4 mr-2" />
-            Download & Compile Locally
-          </DropdownMenuItem>
+          {serverAPI === "buildtools" ? (
+            <DropdownMenuItem onClick={handleBuildToolsExport}>
+              <Download className="h-4 w-4 mr-2" />
+              Download with BuildTools
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onClick={handleLocalCompileExport}>
+              <Download className="h-4 w-4 mr-2" />
+              Download & Compile Locally
+            </DropdownMenuItem>
+          )}
 
           <DropdownMenuSeparator />
 
@@ -669,9 +978,9 @@ git push -u origin main`;
             Check Syntax
           </DropdownMenuItem>
           
-          <DropdownMenuItem onClick={handleExportWithGitHub}>
+          <DropdownMenuItem onClick={handleExportWithGitHub} disabled={serverAPI === "buildtools"}>
             <Github className="h-4 w-4 mr-2" />
-            Export for GitHub
+            Export for GitHub {serverAPI === "buildtools" && "(N/A)"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -881,6 +1190,77 @@ git push -u origin main`;
               <ul className="text-xs text-muted-foreground space-y-1">
                 <li>• <a href="https://adoptium.net/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Java {javaVersion}</a></li>
                 <li>• <a href="https://maven.apache.org/download.cgi" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Maven</a></li>
+              </ul>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* BuildTools Dialog */}
+      <Dialog open={showBuildToolsDialog} onOpenChange={setShowBuildToolsDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Terminal className="h-5 w-5" />
+              BuildTools Package Ready!
+            </DialogTitle>
+            <DialogDescription>
+              Java {javaVersion} • Minecraft {mcVersion} • Spigot BuildTools
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+              <p className="text-sm text-foreground">
+                <strong>⚠️ First run takes 10-30 minutes</strong> as BuildTools compiles Spigot from source. Subsequent builds are much faster!
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
+                <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold shrink-0">
+                  1
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">Extract & run the script</p>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p><strong>Windows:</strong> <code className="bg-background px-1 rounded">BUILD_WITH_BUILDTOOLS.bat</code></p>
+                    <p><strong>Mac/Linux:</strong> <code className="bg-background px-1 rounded">./build_with_buildtools.sh</code></p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                <div className="h-6 w-6 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                  2
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">Wait for compilation</p>
+                  <p className="text-xs text-muted-foreground">
+                    BuildTools downloads and compiles Spigot, then builds your plugin
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
+                <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold shrink-0">
+                  3
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">Get your JAR!</p>
+                  <p className="text-xs text-muted-foreground">
+                    Find <code className="bg-background px-1 rounded">{pluginName}.jar</code> in <code className="bg-background px-1 rounded">target/</code>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-muted/50 border rounded-lg p-3">
+              <p className="text-sm font-medium text-foreground mb-2">Requirements:</p>
+              <ul className="text-xs text-muted-foreground space-y-1">
+                <li>• <a href="https://adoptium.net/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Java {javaVersion}</a></li>
+                <li>• <a href="https://maven.apache.org/download.cgi" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Maven</a></li>
+                <li>• <a href="https://git-scm.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Git</a> (required by BuildTools)</li>
               </ul>
             </div>
           </div>
