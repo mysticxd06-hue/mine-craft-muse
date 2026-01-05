@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { useChat, Message } from "@/hooks/useChat";
 import { EditorChatPanel } from "@/components/EditorChatPanel";
 import { FileTree } from "@/components/FileTree";
 import { CodeViewer } from "@/components/CodeViewer";
+import { CompileDropdown } from "@/components/CompileDropdown";
 import { parsePluginFiles, hasPluginFiles, PluginFile, exportPluginAsZip, downloadZip, getPluginName } from "@/lib/pluginExport";
 import { Button } from "@/components/ui/button";
-import { Blocks, Download, ArrowLeft, Play, Settings, FolderTree, FileCode } from "lucide-react";
+import { Blocks, Download, ArrowLeft, FolderTree, FileCode } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface LocationState {
@@ -16,7 +17,6 @@ interface LocationState {
 
 export default function Editor() {
   const location = useLocation();
-  const navigate = useNavigate();
   const state = location.state as LocationState | null;
   
   const { messages, isLoading, sendMessage, addMessage } = useChat();
@@ -107,19 +107,10 @@ export default function Editor() {
             <Download className="h-4 w-4 mr-1.5" />
             Export
           </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => {
-              toast({
-                title: "Compile Instructions",
-                description: "Use 'mvn clean package' or 'gradle build' to compile your plugin.",
-              });
-            }}
-          >
-            <Play className="h-4 w-4 mr-1.5" />
-            Compile
-          </Button>
+          <CompileDropdown 
+            pluginFiles={pluginFiles} 
+            disabled={pluginFiles.length === 0} 
+          />
         </div>
       </header>
 
