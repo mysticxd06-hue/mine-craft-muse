@@ -1,5 +1,8 @@
 import { cn } from "@/lib/utils";
-import { Bot, User } from "lucide-react";
+import { Bot, User, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { hasPluginFiles, parsePluginFiles, exportPluginAsZip, downloadZip, getPluginName } from "@/lib/pluginExport";
+import { toast } from "@/hooks/use-toast";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -9,6 +12,28 @@ interface ChatMessageProps {
 
 export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
   const isAssistant = role === "assistant";
+  const canExport = isAssistant && hasPluginFiles(content);
+
+  const handleExport = async () => {
+    const files = parsePluginFiles(content);
+    if (files.length === 0) return;
+    
+    const pluginName = getPluginName(files);
+    const project = { name: pluginName, files, createdAt: Date.now() };
+    
+    try {
+      const blob = await exportPluginAsZip(project);
+      downloadZip(blob, `${pluginName}-${Date.now()}.zip`);
+      toast({ title: "Plugin exported!", description: `Downloaded ${pluginName}.zip` });
+    } catch (error) {
+      toast({ title: "Export failed", variant: "destructive" });
+    }
+  };
+
+  // Clean content for display (remove file markers)
+  const displayContent = content
+    .replace(/===FILE:.+?===\n/g, '\n**📄 ')
+    .replace(/===ENDFILE===/g, '\n---');
 
   return (
     <div
@@ -28,6 +53,12 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
         {isAssistant ? <Bot className="h-5 w-5" /> : <User className="h-5 w-5" />}
       </div>
       <div className="flex-1 space-y-2 overflow-hidden">
+        {canExport && (
+          <Button onClick={handleExport} size="sm" className="mb-2 gap-2">
+            <Download className="h-4 w-4" />
+            Download Plugin ZIP
+          </Button>
+        )}
         <div className="prose prose-invert max-w-none">
           {isLoading ? (
             <div className="flex items-center gap-1">
@@ -37,7 +68,7 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
             </div>
           ) : (
             <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
-              {content.split("```").map((part, index) => {
+              {displayContent.split("```").map((part, index) => {
                 if (index % 2 === 1) {
                   const [lang, ...code] = part.split("\n");
                   return (
