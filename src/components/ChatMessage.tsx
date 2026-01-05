@@ -46,15 +46,15 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
     <div
       className={cn(
         "flex gap-3 p-4 animate-fade-in",
-        isAssistant ? "bg-secondary/30" : "bg-transparent"
+        isAssistant ? "bg-gradient-to-r from-primary/5 to-transparent" : "bg-transparent"
       )}
     >
       <div
         className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
           isAssistant
-            ? "bg-primary/10"
-            : "bg-secondary"
+            ? "bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20"
+            : "bg-secondary border border-border"
         )}
       >
         {isAssistant ? (
@@ -75,7 +75,7 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
         )}
         
         {canExport && (
-          <Button onClick={handleExport} size="sm" className="mb-2 gap-2">
+          <Button onClick={handleExport} size="sm" className="mb-3 gap-2 bg-gradient-to-r from-primary to-accent hover:opacity-90">
             <Download className="h-4 w-4" />
             Download Plugin ZIP
           </Button>
@@ -95,14 +95,14 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
                   return (
                     <pre
                       key={index}
-                      className="my-3 overflow-x-auto rounded-lg bg-background border border-border p-4"
+                      className="my-3 overflow-x-auto rounded-xl bg-background/80 border border-border p-4 backdrop-blur-sm"
                     >
                       {lang && (
-                        <div className="mb-2 text-xs text-primary uppercase tracking-wider">
+                        <div className="mb-2 text-xs text-primary uppercase tracking-wider font-medium">
                           {lang}
                         </div>
                       )}
-                      <code className="text-foreground/80">{code.join("\n")}</code>
+                      <code className="text-foreground/90">{code.join("\n")}</code>
                     </pre>
                   );
                 }

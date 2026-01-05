@@ -22,17 +22,17 @@ export function EditorChatPanel({ messages, onSend, isLoading }: EditorChatPanel
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b border-border">
-        <div className="h-9 w-9 bg-primary/10 rounded-lg flex items-center justify-center">
+      <div className="flex items-center gap-3 p-4 border-b border-border bg-card/50">
+        <div className="h-10 w-10 bg-gradient-to-br from-primary/20 to-accent/20 rounded-xl flex items-center justify-center border border-primary/20">
           <Moon className="h-5 w-5 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-display text-sm text-foreground">Lunar</h3>
-          <p className="text-xs text-muted-foreground">AI Assistant</p>
+          <p className="text-xs text-muted-foreground">AI Plugin Assistant</p>
         </div>
-        <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/10 rounded-full">
-          <span className="h-1.5 w-1.5 bg-primary rounded-full" />
-          <span className="text-xs text-primary">Online</span>
+        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-primary/10 to-accent/10 rounded-full border border-primary/20">
+          <span className="h-1.5 w-1.5 bg-primary rounded-full animate-pulse" />
+          <span className="text-xs text-primary font-medium">Active</span>
         </div>
       </div>
 
@@ -41,19 +41,19 @@ export function EditorChatPanel({ messages, onSend, isLoading }: EditorChatPanel
         <div className="divide-y divide-border/50">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-80 text-center p-6">
-              <div className="h-14 w-14 rounded-xl bg-secondary border border-border flex items-center justify-center mb-4">
-                <Moon className="h-7 w-7 text-primary" />
+              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 flex items-center justify-center mb-4 animate-float">
+                <Moon className="h-8 w-8 text-primary" />
               </div>
-              <h4 className="font-display text-foreground mb-2">
-                Hi! I'm Lunar
+              <h4 className="font-display text-lg text-foreground mb-2">
+                Hey, I'm <span className="text-gradient">Lunar</span>
               </h4>
-              <p className="text-muted-foreground text-sm max-w-[240px]">
-                Describe your Minecraft plugin idea and I'll create it for you.
+              <p className="text-muted-foreground text-sm max-w-[260px]">
+                Tell me what Minecraft plugin you'd like to create and I'll build it for you.
               </p>
               
               <div className="flex flex-wrap gap-2 justify-center mt-6">
-                {["Commands", "Events", "Configs"].map((tag) => (
-                  <span key={tag} className="px-2 py-1 text-xs font-mono text-muted-foreground bg-secondary rounded border border-border">
+                {["Commands", "Events", "Configs", "GUIs"].map((tag) => (
+                  <span key={tag} className="px-3 py-1.5 text-xs font-medium text-primary/80 bg-primary/10 rounded-lg border border-primary/20">
                     {tag}
                   </span>
                 ))}

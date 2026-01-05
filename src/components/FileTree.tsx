@@ -108,20 +108,20 @@ function TreeNode({
         <button
           onClick={() => toggleFolder(node.path)}
           className={cn(
-            "flex items-center gap-2 w-full px-2 py-1.5 text-sm hover:bg-secondary transition-colors text-left",
+            "flex items-center gap-2 w-full px-2 py-1.5 text-sm hover:bg-primary/5 transition-colors text-left rounded-lg mx-1",
             "text-foreground/80 hover:text-foreground"
           )}
           style={{ paddingLeft: `${depth * 12 + 12}px` }}
         >
           {isExpanded ? (
-            <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+            <ChevronDown className="h-3 w-3 text-primary shrink-0" />
           ) : (
             <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
           )}
           {isExpanded ? (
             <FolderOpen className="h-4 w-4 text-primary shrink-0" />
           ) : (
-            <Folder className="h-4 w-4 text-primary/70 shrink-0" />
+            <Folder className="h-4 w-4 text-accent shrink-0" />
           )}
           <span className="truncate font-mono text-xs">{node.name}</span>
         </button>
@@ -148,10 +148,10 @@ function TreeNode({
     <button
       onClick={() => onSelectFile(node.path)}
       className={cn(
-        "flex items-center gap-2 w-full px-2 py-1.5 text-sm transition-colors text-left",
+        "flex items-center gap-2 w-full px-2 py-1.5 text-sm transition-colors text-left rounded-lg mx-1",
         isSelected
-          ? "bg-primary/10 text-primary"
-          : "hover:bg-secondary text-foreground/70 hover:text-foreground"
+          ? "bg-gradient-to-r from-primary/15 to-accent/10 text-primary border-l-2 border-primary"
+          : "hover:bg-primary/5 text-foreground/70 hover:text-foreground"
       )}
       style={{ paddingLeft: `${depth * 12 + 24}px` }}
     >
@@ -190,10 +190,10 @@ export function FileTree({ files, selectedFile, onSelectFile }: FileTreeProps) {
   if (files.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-4">
-        <div className="h-10 w-10 rounded-lg bg-secondary border border-border flex items-center justify-center mb-3">
-          <Moon className="h-5 w-5 text-muted-foreground" />
+        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 flex items-center justify-center mb-3 animate-float">
+          <Moon className="h-6 w-6 text-primary" />
         </div>
-        <p className="text-sm text-muted-foreground">No files yet</p>
+        <p className="text-sm text-foreground font-medium">No files yet</p>
         <p className="text-xs text-muted-foreground mt-1">
           Ask Lunar to create a plugin
         </p>
