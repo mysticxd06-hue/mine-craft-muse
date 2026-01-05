@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useChat, Message, getMessageText } from "@/hooks/useChat";
 import { useProjectHistory, Project } from "@/hooks/useProjectHistory";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { useCredits } from "@/hooks/useCredits";
+import { supabase } from "@/integrations/supabase/client";
 import { EditorChatPanel } from "@/components/EditorChatPanel";
 import { FileTree } from "@/components/FileTree";
 import { CodeViewer } from "@/components/CodeViewer";
@@ -23,14 +23,32 @@ export default function Editor() {
   const location = useLocation();
   const navigate = useNavigate();
   const state = location.state as LocationState | null;
-  const { user, profile, loading } = useAuthContext();
-  const { useCredit } = useCredits();
+  const { user, profile, loading, refreshProfile } = useAuthContext();
   
   const { messages, isLoading, sendMessage, addMessage, setAllMessages } = useChat();
   const { projects, saveProject, deleteProject } = useProjectHistory();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [pluginFiles, setPluginFiles] = useState<PluginFile[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [credits, setCredits] = useState<number>(profile?.credits ?? 0);
+
+  // Keep credits in sync with profile
+  useEffect(() => {
+    setCredits(profile?.credits ?? 0);
+  }, [profile?.credits]);
+
+  // Fetch fresh credits from database
+  const refreshCredits = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('user_credits')
+      .select('credits')
+      .eq('user_id', user.id)
+      .single();
+    if (data) {
+      setCredits(data.credits);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (state?.messages) {
@@ -53,7 +71,7 @@ export default function Editor() {
       return;
     }
 
-    if (!profile || profile.credits <= 0) {
+    if (credits <= 0) {
       toast({
         title: "Insufficient credits",
         description: "You don't have enough credits. Contact an admin for more.",
@@ -62,19 +80,28 @@ export default function Editor() {
       return;
     }
 
-    // Deduct credit
-    const result = await useCredit(user.id, 'Plugin generation');
+    // Send message (credits are deducted server-side)
+    const result = await sendMessage(content, imageBase64);
+    
     if (!result.success) {
-      toast({
-        title: "Credit error",
-        description: result.error,
-        variant: "destructive",
-      });
+      if (result.creditError) {
+        toast({
+          title: "Insufficient credits",
+          description: result.error,
+          variant: "destructive",
+        });
+      } else if (result.error) {
+        toast({
+          title: "Error",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
       return;
     }
 
-    // Send message
-    sendMessage(content, imageBase64);
+    // Refresh credits after successful message
+    await refreshCredits();
   };
 
   useEffect(() => {
@@ -181,7 +208,7 @@ export default function Editor() {
             <>
               <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary/50 rounded-lg border border-border">
                 <Coins className="h-4 w-4 text-yellow-500" />
-                <span className="text-sm font-medium">{profile?.credits ?? 0}</span>
+                <span className="text-sm font-medium">{credits}</span>
               </div>
               
               <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary/50 rounded-lg border border-border">

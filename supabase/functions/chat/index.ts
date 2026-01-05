@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,10 +60,84 @@ serve(async (req) => {
   try {
     const { messages } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
+
+    // Get authorization header
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Authorization required" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Create Supabase client with user token
+    const supabaseClient = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+    
+    // Verify user and get their ID from token
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await createClient(
+      SUPABASE_URL!,
+      Deno.env.get("SUPABASE_ANON_KEY")!
+    ).auth.getUser(token);
+
+    if (authError || !user) {
+      console.error("Auth error:", authError);
+      return new Response(JSON.stringify({ error: "Invalid authentication" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Check user credits using service role (bypasses RLS)
+    const { data: creditData, error: creditError } = await supabaseClient
+      .from("user_credits")
+      .select("credits")
+      .eq("user_id", user.id)
+      .single();
+
+    if (creditError) {
+      console.error("Credit check error:", creditError);
+      return new Response(JSON.stringify({ error: "Failed to check credits" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!creditData || creditData.credits <= 0) {
+      return new Response(JSON.stringify({ error: "Insufficient credits. Please contact an admin for more." }), {
+        status: 402,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Deduct 1 credit
+    const { error: updateError } = await supabaseClient
+      .from("user_credits")
+      .update({ credits: creditData.credits - 1 })
+      .eq("user_id", user.id);
+
+    if (updateError) {
+      console.error("Credit deduction error:", updateError);
+      return new Response(JSON.stringify({ error: "Failed to deduct credit" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Log the transaction
+    await supabaseClient.from("credit_transactions").insert({
+      user_id: user.id,
+      amount: -1,
+      reason: "AI chat generation",
+    });
+
+    console.log(`Deducted 1 credit from user ${user.id}. Remaining: ${creditData.credits - 1}`);
 
     // Check if any message contains an image
     const hasImage = messages.some((m: any) => 
