@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,6 +61,7 @@ serve(async (req) => {
     const { messages } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
     if (!LOVABLE_API_KEY) {
@@ -76,15 +77,15 @@ serve(async (req) => {
       });
     }
 
-    // Create Supabase client with user token
-    const supabaseClient = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
-    
-    // Verify user and get their ID from token
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await createClient(
-      SUPABASE_URL!,
-      Deno.env.get("SUPABASE_ANON_KEY")!
-    ).auth.getUser(token);
+    // Create Supabase client with the user's JWT to verify auth
+    const supabaseAuth = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+      global: {
+        headers: { Authorization: authHeader },
+      },
+    });
+
+    // Verify user from the token
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
 
     if (authError || !user) {
       console.error("Auth error:", authError);
@@ -94,8 +95,13 @@ serve(async (req) => {
       });
     }
 
-    // Check user credits using service role (bypasses RLS)
-    const { data: creditData, error: creditError } = await supabaseClient
+    console.log(`Authenticated user: ${user.id}`);
+
+    // Create service role client for credit operations (bypasses RLS)
+    const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+    // Check user credits
+    const { data: creditData, error: creditError } = await supabaseAdmin
       .from("user_credits")
       .select("credits")
       .eq("user_id", user.id)
@@ -117,7 +123,7 @@ serve(async (req) => {
     }
 
     // Deduct 1 credit
-    const { error: updateError } = await supabaseClient
+    const { error: updateError } = await supabaseAdmin
       .from("user_credits")
       .update({ credits: creditData.credits - 1 })
       .eq("user_id", user.id);
@@ -131,7 +137,7 @@ serve(async (req) => {
     }
 
     // Log the transaction
-    await supabaseClient.from("credit_transactions").insert({
+    await supabaseAdmin.from("credit_transactions").insert({
       user_id: user.id,
       amount: -1,
       reason: "AI chat generation",
