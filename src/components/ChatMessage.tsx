@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Moon, User, Download } from "lucide-react";
+import { Moon, User, Download, ChevronRight, FileCode, FileText, FolderPlus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { hasPluginFiles, parsePluginFiles, exportPluginAsZip, downloadZip, getPluginName } from "@/lib/pluginExport";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { hasPluginFiles, parsePluginFiles, exportPluginAsZip, downloadZip, getPluginName, PluginFile } from "@/lib/pluginExport";
 import { toast } from "@/hooks/use-toast";
 import { Message, MessageContent, getMessageText } from "@/hooks/useChat";
 
@@ -9,6 +11,67 @@ interface ChatMessageProps {
   role: "user" | "assistant";
   content: string | MessageContent[];
   isLoading?: boolean;
+}
+
+interface FileGroup {
+  created: PluginFile[];
+  updated: PluginFile[];
+}
+
+function getFileIcon(path: string) {
+  if (path.endsWith('.java')) return <FileCode className="h-4 w-4 text-orange-400" />;
+  if (path.endsWith('.yml') || path.endsWith('.yaml')) return <FileText className="h-4 w-4 text-yellow-400" />;
+  if (path.endsWith('.gradle')) return <FileText className="h-4 w-4 text-green-400" />;
+  return <FileText className="h-4 w-4 text-muted-foreground" />;
+}
+
+function getShortFileName(path: string) {
+  const parts = path.split('/');
+  const fileName = parts[parts.length - 1];
+  if (parts.length > 2) {
+    return `.../${parts[parts.length - 2]}/${fileName}`;
+  }
+  return path;
+}
+
+function FileSection({ 
+  title, 
+  files, 
+  icon: Icon,
+  defaultOpen = true 
+}: { 
+  title: string; 
+  files: PluginFile[]; 
+  icon: React.ElementType;
+  defaultOpen?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  
+  if (files.length === 0) return null;
+  
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-2">
+      <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-1">
+        <ChevronRight className={cn("h-4 w-4 transition-transform", isOpen && "rotate-90")} />
+        <Icon className="h-4 w-4" />
+        <span>{title}</span>
+        <span className="text-xs text-muted-foreground/60">({files.length})</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="ml-6 mt-1 space-y-0.5">
+        {files.map((file, idx) => (
+          <div 
+            key={idx}
+            className="flex items-center gap-2 py-1 px-2 rounded hover:bg-secondary/50 transition-colors cursor-default"
+          >
+            {getFileIcon(file.path)}
+            <span className="text-sm text-foreground/80 font-mono truncate">
+              {getShortFileName(file.path)}
+            </span>
+          </div>
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
+  );
 }
 
 export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
@@ -20,10 +83,22 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
     ? content.find(c => c.type === 'image_url')?.image_url?.url 
     : null;
   
-  const canExport = isAssistant && hasPluginFiles(textContent);
+  const hasFiles = isAssistant && hasPluginFiles(textContent);
+  const files = hasFiles ? parsePluginFiles(textContent) : [];
+  
+  // Extract the message text without file content
+  const cleanMessage = textContent
+    .replace(/===FILE:.+?===[\s\S]*?===ENDFILE===/g, '')
+    .trim();
+  
+  // For demo purposes, treat all files as "created" 
+  // In a real app you'd track which are updates vs new
+  const fileGroups: FileGroup = {
+    created: files,
+    updated: []
+  };
 
   const handleExport = async () => {
-    const files = parsePluginFiles(textContent);
     if (files.length === 0) return;
     
     const pluginName = getPluginName(files);
@@ -37,10 +112,6 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
       toast({ title: "Export failed", variant: "destructive" });
     }
   };
-
-  const displayContent = textContent
-    .replace(/===FILE:.+?===\n/g, '\n**📄 ')
-    .replace(/===ENDFILE===/g, '\n---');
 
   return (
     <div
@@ -74,12 +145,6 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
           </div>
         )}
         
-        {canExport && (
-          <Button onClick={handleExport} size="sm" className="mb-3 gap-2 bg-gradient-to-r from-primary to-accent hover:opacity-90">
-            <Download className="h-4 w-4" />
-            Download Plugin ZIP
-          </Button>
-        )}
         <div className="prose prose-invert max-w-none">
           {isLoading ? (
             <div className="flex items-center gap-2 py-1">
@@ -88,27 +153,40 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
               <span className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
             </div>
           ) : (
-            <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-foreground/90">
-              {displayContent.split("```").map((part, index) => {
-                if (index % 2 === 1) {
-                  const [lang, ...code] = part.split("\n");
-                  return (
-                    <pre
-                      key={index}
-                      className="my-3 overflow-x-auto rounded-xl bg-background/80 border border-border p-4 backdrop-blur-sm"
-                    >
-                      {lang && (
-                        <div className="mb-2 text-xs text-primary uppercase tracking-wider font-medium">
-                          {lang}
-                        </div>
-                      )}
-                      <code className="text-foreground/90">{code.join("\n")}</code>
-                    </pre>
-                  );
-                }
-                return <span key={index}>{part}</span>;
-              })}
-            </div>
+            <>
+              {/* Clean message text */}
+              {cleanMessage && (
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+                  {cleanMessage}
+                </div>
+              )}
+              
+              {/* Collapsible file sections */}
+              {hasFiles && (
+                <div className="mt-3 space-y-1">
+                  <FileSection 
+                    title="Created" 
+                    files={fileGroups.created} 
+                    icon={FolderPlus}
+                  />
+                  <FileSection 
+                    title="Updated" 
+                    files={fileGroups.updated} 
+                    icon={RefreshCw}
+                  />
+                  
+                  <Button 
+                    onClick={handleExport} 
+                    size="sm" 
+                    variant="outline"
+                    className="mt-3 gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download Plugin
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
