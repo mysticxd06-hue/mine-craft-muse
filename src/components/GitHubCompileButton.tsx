@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Github, Download, ExternalLink, Copy, Check, ChevronDown, Loader2, AlertCircle, CheckCircle, Package, Terminal, Hammer, Wrench, Server } from "lucide-react";
+import { Github, Download, ExternalLink, Copy, Check, ChevronDown, Loader2, AlertCircle, CheckCircle, Package, Terminal, Hammer, Wrench } from "lucide-react";
 import { PluginFile, getPluginName } from "@/lib/pluginExport";
 import { supabase } from "@/integrations/supabase/client";
 import JSZip from "jszip";
@@ -124,9 +124,6 @@ export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButt
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildErrors, setBuildErrors] = useState<string[]>([]);
   const [showBuildErrorDialog, setShowBuildErrorDialog] = useState(false);
-  const [showBuildServerDialog, setShowBuildServerDialog] = useState(false);
-  const [buildServerUrl, setBuildServerUrl] = useState(() => localStorage.getItem('buildServerUrl') || '');
-  const [isBuildServerCompiling, setIsBuildServerCompiling] = useState(false);
 
   const pluginName = getPluginName(pluginFiles);
 
@@ -614,7 +611,7 @@ Copy this JAR to your Minecraft server's \`plugins\` folder!
     }
   };
 
-  // Compile: use custom build server to get JAR
+  // Compile: use built-in edge function to get JAR
   const handleDirectCompile = async () => {
     if (loading) return;
 
@@ -629,21 +626,7 @@ Copy this JAR to your Minecraft server's \`plugins\` folder!
       return;
     }
 
-    // Show build server configuration dialog
-    setShowBuildServerDialog(true);
-  };
-
-  // Send code to custom build server and download the JAR
-  const handleBuildServerCompile = async () => {
-    if (!buildServerUrl.trim()) {
-      toast.error("Please enter your build server URL");
-      return;
-    }
-
-    // Save URL for future use
-    localStorage.setItem('buildServerUrl', buildServerUrl.trim());
-
-    setIsBuildServerCompiling(true);
+    setIsBuilding(true);
     try {
       // Prepare the payload
       const apiVersion = mcVersion.substring(0, 4);
@@ -658,96 +641,62 @@ Copy this JAR to your Minecraft server's \`plugins\` folder!
         return { path: file.path, content: file.content };
       });
 
-      // Add pom.xml
-      filesPayload.push({
-        path: "pom.xml",
-        content: generatePomXml(javaVersion, mcVersion, serverAPI),
-      });
+      toast.info("Compiling your plugin...");
 
-      const payload = {
-        pluginName,
-        javaVersion,
-        mcVersion,
-        serverAPI,
-        buildTool,
-        files: filesPayload,
-      };
-
-      toast.info("Sending code to build server...");
-
-      const response = await fetch(buildServerUrl.trim(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const { data, error } = await supabase.functions.invoke('build-plugin', {
+        body: {
+          files: filesPayload,
+          pluginName,
+          javaVersion,
+          mcVersion,
+          serverAPI,
+          buildTool,
         },
-        body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Build server error (${response.status}): ${errorText}`);
+      if (error) {
+        throw new Error(error.message);
       }
 
-      const contentType = response.headers.get('content-type');
-      
-      if (contentType?.includes('application/java-archive') || contentType?.includes('application/octet-stream') || contentType?.includes('application/zip')) {
-        // Server returned a JAR file directly
-        const blob = await response.blob();
+      if (!data.success) {
+        // Show build errors
+        if (data.errors && data.errors.length > 0) {
+          setBuildErrors(data.errors);
+          setShowBuildErrorDialog(true);
+        } else {
+          toast.error(data.message || "Build failed");
+        }
+        return;
+      }
+
+      // Download the JAR
+      if (data.jarBase64) {
+        const binaryString = atob(data.jarBase64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: 'application/java-archive' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `${pluginName}.jar`;
+        a.download = data.fileName || `${pluginName}.jar`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        toast.success(`${pluginName}.jar downloaded successfully!`);
-        setShowBuildServerDialog(false);
+        toast.success(`${pluginName}.jar downloaded successfully!`, { duration: 5000 });
       } else {
-        // Check if it's JSON response with download URL or error
-        const data = await response.json();
-        
-        if (data.error) {
-          throw new Error(data.error);
-        }
-        
-        if (data.downloadUrl) {
-          // Server returned a URL to download the JAR
-          window.open(data.downloadUrl, '_blank');
-          toast.success("Download started!");
-          setShowBuildServerDialog(false);
-        } else if (data.jarBase64) {
-          // Server returned the JAR as base64
-          const binaryString = atob(data.jarBase64);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          const blob = new Blob([bytes], { type: 'application/java-archive' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `${pluginName}.jar`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-
-          toast.success(`${pluginName}.jar downloaded successfully!`);
-          setShowBuildServerDialog(false);
-        } else {
-          throw new Error("Unexpected response format from build server");
-        }
+        toast.error("No JAR data received from build service");
       }
     } catch (err) {
-      console.error("Build server error:", err);
-      toast.error(err instanceof Error ? err.message : "Failed to compile. Check your build server.");
+      console.error("Build error:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to compile. Please try again.");
     } finally {
-      setIsBuildServerCompiling(false);
+      setIsBuilding(false);
     }
   };
-
   const handleCopy = async (text: string) => {
     await navigator.clipboard.writeText(text);
     setCopied(true);
@@ -1023,7 +972,7 @@ Copy this to your server's \`plugins\` folder!
     }
   };
 
-  const isLoading = isExporting || isCompiling || isLocalExporting || isBuildToolsExporting || isBuilding || isBuildServerCompiling;
+  const isLoading = isExporting || isCompiling || isLocalExporting || isBuildToolsExporting || isBuilding;
 
   return (
     <>
@@ -1483,87 +1432,6 @@ Copy this to your server's \`plugins\` folder!
               <li>• Verify balanced braces and parentheses</li>
               <li>• Use "Check Syntax" for detailed error info</li>
             </ul>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Build Server Dialog */}
-      <Dialog open={showBuildServerDialog} onOpenChange={setShowBuildServerDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Server className="h-5 w-5 text-primary" />
-              Custom Build Server
-            </DialogTitle>
-            <DialogDescription>
-              Enter your build server URL to compile {pluginName}.jar
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Build Server URL</label>
-              <input
-                type="url"
-                placeholder="https://your-server.com/api/compile"
-                value={buildServerUrl}
-                onChange={(e) => setBuildServerUrl(e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <p className="text-xs text-muted-foreground">
-                Your server should accept POST with JSON payload and return a JAR file
-              </p>
-            </div>
-
-            <div className="bg-muted/50 border rounded-lg p-3">
-              <p className="text-sm font-medium text-foreground mb-2">Server Requirements:</p>
-              <ul className="text-xs text-muted-foreground space-y-1">
-                <li>• Accept POST request with JSON body</li>
-                <li>• Return JAR as binary (application/java-archive)</li>
-                <li>• Or return JSON with <code className="bg-background px-1 rounded">downloadUrl</code> or <code className="bg-background px-1 rounded">jarBase64</code></li>
-              </ul>
-            </div>
-
-            <div className="bg-secondary/50 border rounded-lg p-3">
-              <p className="text-sm font-medium text-foreground mb-2">Payload sent:</p>
-              <pre className="text-xs text-muted-foreground overflow-x-auto">
-{`{
-  "pluginName": "${pluginName}",
-  "javaVersion": "${javaVersion}",
-  "mcVersion": "${mcVersion}",
-  "serverAPI": "${serverAPI}",
-  "buildTool": "${buildTool}",
-  "files": [{ "path": "...", "content": "..." }]
-}`}
-              </pre>
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setShowBuildServerDialog(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={handleBuildServerCompile}
-                disabled={!buildServerUrl.trim() || isBuildServerCompiling}
-              >
-                {isBuildServerCompiling ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Compiling...
-                  </>
-                ) : (
-                  <>
-                    <Hammer className="h-4 w-4 mr-2" />
-                    Compile
-                  </>
-                )}
-              </Button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>
