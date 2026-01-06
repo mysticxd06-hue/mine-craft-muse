@@ -297,10 +297,10 @@ const Index = () => {
       {/* Footer */}
       <footer className="relative z-10 py-6 px-6 border-t border-border/50">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-6 text-sm text-muted-foreground">
-            <a href="#" className="hover:text-foreground transition-colors">Terms</a>
-            <a href="#" className="hover:text-foreground transition-colors">Privacy</a>
-            <a href="#" className="hover:text-foreground transition-colors">Discord</a>
+        <div className="flex items-center gap-6 text-sm text-muted-foreground">
+            <a href="/terms" className="hover:text-foreground transition-colors">Terms</a>
+            <a href="/privacy" className="hover:text-foreground transition-colors">Privacy</a>
+            <a href="https://discord.gg/PngVGx4Fpy" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">Discord</a>
           </div>
           
           <p className="text-sm text-muted-foreground">
