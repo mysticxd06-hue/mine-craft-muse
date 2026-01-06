@@ -338,26 +338,29 @@ serve(async (req) => {
   try {
     // Authentication check
     const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
         JSON.stringify({ error: "Authorization required" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Verify user session
-    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-    if (!token || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       return new Response(
-        JSON.stringify({ error: "Authorization required" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Server configuration error" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    // Verify user session using getClaims
+    const token = authHeader.replace('Bearer ', '');
+    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } }
+    });
+    
+    const { data, error: authError } = await supabaseAuth.auth.getClaims(token);
 
-    if (authError || !user) {
+    if (authError || !data?.claims) {
       console.error("Auth error:", authError);
       return new Response(
         JSON.stringify({ error: "Invalid authentication" }),
@@ -365,7 +368,8 @@ serve(async (req) => {
       );
     }
 
-    console.log(`User ${user.id} is building a plugin`);
+    const userId = data.claims.sub;
+    console.log(`User ${userId} is building a plugin`);
 
     const { files, pluginName, javaVersion, mcVersion, serverAPI, buildTool } = await req.json() as BuildRequest;
 
