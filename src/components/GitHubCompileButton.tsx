@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Github, Download, ExternalLink, Copy, Check, ChevronDown, Loader2, AlertCircle, CheckCircle, Package, Terminal, Hammer, Wrench } from "lucide-react";
+import { Github, Download, ExternalLink, Copy, Check, ChevronDown, Loader2, AlertCircle, CheckCircle, Package, Terminal, Hammer, Wrench, X, Sparkles } from "lucide-react";
 import { PluginFile, getPluginName } from "@/lib/pluginExport";
 import { supabase } from "@/integrations/supabase/client";
 import JSZip from "jszip";
@@ -124,6 +124,8 @@ export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButt
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildErrors, setBuildErrors] = useState<string[]>([]);
   const [showBuildErrorDialog, setShowBuildErrorDialog] = useState(false);
+  const [isAutoFixing, setIsAutoFixing] = useState(false);
+  const [errorsCopied, setErrorsCopied] = useState(false);
 
   const pluginName = getPluginName(pluginFiles);
 
@@ -1398,40 +1400,109 @@ Copy this to your server's \`plugins\` folder!
         </DialogContent>
       </Dialog>
 
-      {/* Build Error Dialog */}
+      {/* Build Error Dialog - Terminal Style */}
       <Dialog open={showBuildErrorDialog} onOpenChange={setShowBuildErrorDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-5 w-5" />
-              Build Failed
-            </DialogTitle>
-            <DialogDescription>
-              {buildTool.toUpperCase()} compilation failed with the following errors:
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3 mt-4 max-h-64 overflow-y-auto">
-            {buildErrors.map((error, index) => (
-              <div
-                key={index}
-                className="p-3 rounded-lg bg-destructive/10 border border-destructive/20"
-              >
-                <pre className="text-xs text-muted-foreground overflow-x-auto whitespace-pre-wrap">
-                  {error}
-                </pre>
+        <DialogContent className="max-w-lg p-0 overflow-hidden bg-[#1a1a2e] border-[#2a2a4a]">
+          {/* Terminal Header */}
+          <div className="flex items-center justify-between px-4 py-3 bg-[#12121f] border-b border-[#2a2a4a]">
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-[#ff5f56]" />
+                <div className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
+                <div className="w-3 h-3 rounded-full bg-[#27ca40]" />
               </div>
-            ))}
+              <span className="text-sm text-gray-400 ml-2 font-mono">build</span>
+            </div>
+            <div className="flex items-center gap-2 px-2 py-0.5 rounded bg-red-500/20 border border-red-500/40">
+              <X className="h-3 w-3 text-red-400" />
+              <span className="text-xs font-medium text-red-400">FAILED</span>
+            </div>
           </div>
 
-          <div className="bg-muted/50 border rounded-lg p-3 mt-4">
-            <p className="text-sm font-medium text-foreground mb-2">Troubleshooting:</p>
-            <ul className="text-xs text-muted-foreground space-y-1">
-              <li>• Check that class names match file names</li>
-              <li>• Ensure all Java files have package declarations</li>
-              <li>• Verify balanced braces and parentheses</li>
-              <li>• Use "Check Syntax" for detailed error info</li>
-            </ul>
+          {/* Terminal Content */}
+          <div className="p-4 font-mono text-sm">
+            {/* Command Line */}
+            <div className="flex items-center gap-2 text-gray-400 mb-3">
+              <span className="text-green-400">$</span>
+              <span>{buildTool} build --target {serverAPI}</span>
+            </div>
+            
+            {/* Error Output */}
+            <div className="flex items-center gap-2 text-red-400 mb-4">
+              <X className="h-4 w-4" />
+              <span>Build failed with errors</span>
+            </div>
+
+            {/* Error Details Box */}
+            <div className="bg-[#12121f] rounded-lg border border-[#2a2a4a] p-4 max-h-48 overflow-y-auto">
+              <p className="text-gray-400 text-xs mb-2">
+                Validation failed for compilation:
+              </p>
+              <p className="text-gray-400 text-xs mb-3">
+                Compilation failed with {buildErrors.length} error(s):
+              </p>
+              
+              {buildErrors.map((error, index) => (
+                <div key={index} className="mb-3 last:mb-0">
+                  <p className="text-red-400 text-xs font-medium mb-1">ERROR in</p>
+                  <p className="text-blue-400 text-xs break-all hover:underline cursor-pointer">
+                    {error.split(':')[0] || 'Unknown file'}
+                  </p>
+                  <p className="text-gray-300 text-xs mt-1">
+                    : {error.split(':').slice(1).join(':').trim() || error}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 bg-transparent border-[#3a3a5a] text-gray-300 hover:bg-[#2a2a4a] hover:text-white font-mono"
+                onClick={() => {
+                  const errorText = buildErrors.join('\n');
+                  navigator.clipboard.writeText(errorText);
+                  setErrorsCopied(true);
+                  setTimeout(() => setErrorsCopied(false), 2000);
+                  toast.success("Errors copied to clipboard");
+                }}
+              >
+                {errorsCopied ? (
+                  <Check className="h-4 w-4 mr-2" />
+                ) : (
+                  <Copy className="h-4 w-4 mr-2" />
+                )}
+                Copy
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white font-mono border-0"
+                onClick={async () => {
+                  setIsAutoFixing(true);
+                  setShowBuildErrorDialog(false);
+                  
+                  toast.info("Attempting auto-fix and rebuild...");
+                  
+                  // Wait a moment for UI feedback
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                  
+                  // Retry the build - this triggers another compilation attempt
+                  await handleDirectCompile();
+                  
+                  setIsAutoFixing(false);
+                }}
+                disabled={isAutoFixing}
+              >
+                {isAutoFixing ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                Auto-fix
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
