@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Moon, User, Download, ChevronRight, FileCode, FileText, FolderPlus, RefreshCw } from "lucide-react";
+import { User, Download, ChevronRight, FileCode, FileText, FolderPlus, RefreshCw } from "lucide-react";
+import lunarAvatar from "@/assets/lunar-avatar.png";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { hasPluginFiles, parsePluginFiles, exportPluginAsZip, downloadZip, getPluginName, PluginFile } from "@/lib/pluginExport";
@@ -120,20 +121,17 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
         isAssistant ? "bg-gradient-to-r from-primary/5 to-transparent" : "bg-transparent"
       )}
     >
-      <div
-        className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-          isAssistant
-            ? "bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20"
-            : "bg-secondary border border-border"
-        )}
-      >
-        {isAssistant ? (
-          <Moon className="h-4 w-4 text-primary" />
-        ) : (
+      {isAssistant ? (
+        <img 
+          src={lunarAvatar} 
+          alt="Lunar" 
+          className="h-9 w-9 shrink-0 rounded-xl object-cover border border-primary/20"
+        />
+      ) : (
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary border border-border">
           <User className="h-4 w-4 text-muted-foreground" />
-        )}
-      </div>
+        </div>
+      )}
       <div className="flex-1 space-y-2 overflow-hidden min-w-0">
         {imageUrl && (
           <div className="mb-2">
