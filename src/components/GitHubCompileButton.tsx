@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -132,9 +132,9 @@ export function GitHubCompileButton({ pluginFiles, disabled, onFilesUpdate }: Gi
   const [showAutoFixResultDialog, setShowAutoFixResultDialog] = useState(false);
 
   // Keep currentFiles in sync with pluginFiles prop
-  useState(() => {
+  useEffect(() => {
     setCurrentFiles(pluginFiles);
-  });
+  }, [pluginFiles]);
 
   const pluginName = getPluginName(pluginFiles);
 
@@ -721,7 +721,7 @@ Copy this JAR to your Minecraft server's \`plugins\` folder!
 
       const { data, error } = await supabase.functions.invoke('autofix-plugin', {
         body: {
-          files: currentFiles,
+          files: currentFiles.length ? currentFiles : pluginFiles,
           errors: buildErrors,
           pluginName,
         },
