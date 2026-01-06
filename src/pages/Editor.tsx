@@ -4,6 +4,7 @@ import { useChat, Message, getMessageText } from "@/hooks/useChat";
 import { useProjectHistory, Project } from "@/hooks/useProjectHistory";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useProjects, Project as SavedProject } from "@/hooks/useProjects";
 import { EditorChatPanel } from "@/components/EditorChatPanel";
 import { FileTree } from "@/components/FileTree";
 import { CodeViewer } from "@/components/CodeViewer";
@@ -17,6 +18,7 @@ import { toast } from "@/hooks/use-toast";
 interface LocationState {
   initialPrompt?: string;
   messages?: Message[];
+  loadProject?: SavedProject;
 }
 
 export default function Editor() {
@@ -27,10 +29,13 @@ export default function Editor() {
   
   const { messages, isLoading, sendMessage, addMessage, setAllMessages } = useChat();
   const { projects, saveProject, deleteProject } = useProjectHistory();
+  const { saveProject: saveToCloud } = useProjects();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [pluginFiles, setPluginFiles] = useState<PluginFile[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [credits, setCredits] = useState<number>(profile?.credits ?? 0);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Keep credits in sync with profile
   useEffect(() => {
@@ -51,7 +56,22 @@ export default function Editor() {
   }, [user]);
 
   useEffect(() => {
-    if (state?.messages) {
+    // Check if we should load a project from navigation state
+    if (state?.loadProject) {
+      setPluginFiles(state.loadProject.files);
+      setCurrentProjectId(state.loadProject.id);
+      if (state.loadProject.files.length > 0) {
+        const pluginYml = state.loadProject.files.find(f => f.path.endsWith("plugin.yml"));
+        const mainClass = state.loadProject.files.find(f => f.path.endsWith(".java") && f.content.includes("extends JavaPlugin"));
+        setSelectedFile(pluginYml?.path || mainClass?.path || state.loadProject.files[0].path);
+      }
+      toast({
+        title: "Project loaded!",
+        description: `${state.loadProject.name} ready to edit.`,
+      });
+      // Clear navigation state
+      window.history.replaceState({}, document.title);
+    } else if (state?.messages) {
       for (const msg of state.messages) {
         addMessage(msg);
       }
@@ -148,22 +168,56 @@ export default function Editor() {
     });
   };
 
-  const handleSaveProject = () => {
-    if (messages.length === 0) {
+  const handleSaveProject = async () => {
+    if (pluginFiles.length === 0) {
       toast({
         title: "Nothing to save",
-        description: "Start a conversation first.",
+        description: "Generate some plugin code first.",
         variant: "destructive",
       });
       return;
     }
 
-    const pluginName = pluginFiles.length > 0 ? getPluginName(pluginFiles) : "Untitled Plugin";
-    saveProject(pluginName, messages, pluginFiles);
-    toast({
-      title: "Project saved!",
-      description: `${pluginName} saved to history.`,
-    });
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to save projects to the cloud.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const pluginName = getPluginName(pluginFiles);
+    setIsSaving(true);
+    
+    try {
+      // Save to cloud
+      const saved = await saveToCloud(
+        pluginName,
+        pluginFiles,
+        `A Minecraft plugin with ${pluginFiles.length} files`,
+        false,
+        currentProjectId || undefined
+      );
+      setCurrentProjectId(saved.id);
+      
+      // Also save to local history
+      saveProject(pluginName, messages, pluginFiles);
+      
+      toast({
+        title: "Project saved!",
+        description: `${pluginName} saved to your projects.`,
+      });
+    } catch (err) {
+      console.error('Save error:', err);
+      toast({
+        title: "Failed to save",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleLoadProject = (project: Project) => {
@@ -238,10 +292,10 @@ export default function Editor() {
             variant="ghost"
             size="sm"
             onClick={handleSaveProject}
-            disabled={messages.length === 0}
+            disabled={pluginFiles.length === 0 || isSaving}
           >
             <Save className="h-4 w-4 mr-1.5" />
-            Save
+            {isSaving ? "Saving..." : "Save"}
           </Button>
           
           <div className="h-5 w-px bg-border mx-1" />
