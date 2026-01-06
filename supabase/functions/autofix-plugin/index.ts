@@ -64,179 +64,364 @@ serve(async (req) => {
     const { files, errors, pluginName } = await req.json() as AutofixRequest;
 
     console.log(`Autofixing ${pluginName} with ${errors.length} errors`);
+    console.log(`Errors received:`, errors);
 
-    // Analyze errors and generate fixes
-    const fixes: { path: string; content: string; changes: string[] }[] = [];
+    // Track fixes per file
+    const fileFixesMap: Map<string, { content: string; changes: string[] }> = new Map();
     const suggestions: string[] = [];
 
-    for (const error of errors) {
-      // Parse error to find file and issue
-      const fileMatch = error.match(/^([^:]+):/);
-      const filePath = fileMatch ? fileMatch[1].trim() : null;
+    // Helper to find file by path or partial match
+    const findFile = (errorPath: string): PluginFile | undefined => {
+      // Direct match
+      let file = files.find(f => f.path === errorPath);
+      if (file) return file;
+
+      // Match by filename
+      const fileName = errorPath.split('/').pop() || errorPath;
+      file = files.find(f => f.path.endsWith(fileName) || f.path.includes(fileName.replace('.java', '')));
+      if (file) return file;
+
+      // Try matching class name from error
+      const classMatch = errorPath.match(/(\w+)\.java/);
+      if (classMatch) {
+        file = files.find(f => f.path.includes(classMatch[1]));
+      }
+
+      return file;
+    };
+
+    // Get or init file fix tracking
+    const getFileFix = (file: PluginFile) => {
+      if (!fileFixesMap.has(file.path)) {
+        fileFixesMap.set(file.path, { content: file.content, changes: [] });
+      }
+      return fileFixesMap.get(file.path)!;
+    };
+
+    // Helper: Add missing import
+    const addImport = (content: string, importStatement: string): string => {
+      if (content.includes(importStatement)) return content;
       
-      if (!filePath) continue;
-
-      const file = files.find(f => f.path === filePath || f.path.endsWith(filePath.split('/').pop() || ''));
-      if (!file) continue;
-
-      let fixedContent = file.content;
-      const changes: string[] = [];
-
-      // Fix: Missing package declaration
-      if (error.includes('Missing package declaration')) {
-        const javaPath = file.path.replace('src/main/java/', '').replace('.java', '');
-        const packagePath = javaPath.split('/').slice(0, -1).join('.');
-        if (packagePath && !fixedContent.trim().startsWith('package ')) {
-          fixedContent = `package ${packagePath};\n\n${fixedContent}`;
-          changes.push(`Added package declaration: ${packagePath}`);
-        }
+      // Find position after package declaration
+      const packageMatch = content.match(/^(package\s+[\w.]+;\s*\n)/m);
+      if (packageMatch) {
+        const insertPos = packageMatch.index! + packageMatch[0].length;
+        return content.slice(0, insertPos) + importStatement + '\n' + content.slice(insertPos);
       }
+      
+      // Add at the beginning if no package
+      return importStatement + '\n' + content;
+    };
 
-      // Fix: Class name doesn't match file name
-      if (error.includes("doesn't match file name")) {
-        const classNameMatch = error.match(/Class name '(\w+)' doesn't match file name '(\w+)'/);
-        if (classNameMatch) {
-          const [, wrongName, correctName] = classNameMatch;
-          // Replace the class name with the correct one
-          fixedContent = fixedContent.replace(
-            new RegExp(`(public\\s+(class|interface|enum)\\s+)${wrongName}`, 'g'),
-            `$1${correctName}`
-          );
-          changes.push(`Renamed class from '${wrongName}' to '${correctName}'`);
-        }
-      }
+    // Common import mappings for Bukkit/Spigot
+    const commonImports: Record<string, string> = {
+      'JavaPlugin': 'import org.bukkit.plugin.java.JavaPlugin;',
+      'Bukkit': 'import org.bukkit.Bukkit;',
+      'Player': 'import org.bukkit.entity.Player;',
+      'Entity': 'import org.bukkit.entity.Entity;',
+      'Location': 'import org.bukkit.Location;',
+      'World': 'import org.bukkit.World;',
+      'Material': 'import org.bukkit.Material;',
+      'ItemStack': 'import org.bukkit.inventory.ItemStack;',
+      'Inventory': 'import org.bukkit.inventory.Inventory;',
+      'Event': 'import org.bukkit.event.Event;',
+      'Listener': 'import org.bukkit.event.Listener;',
+      'EventHandler': 'import org.bukkit.event.EventHandler;',
+      'EventPriority': 'import org.bukkit.event.EventPriority;',
+      'PlayerJoinEvent': 'import org.bukkit.event.player.PlayerJoinEvent;',
+      'PlayerQuitEvent': 'import org.bukkit.event.player.PlayerQuitEvent;',
+      'PlayerMoveEvent': 'import org.bukkit.event.player.PlayerMoveEvent;',
+      'PlayerInteractEvent': 'import org.bukkit.event.player.PlayerInteractEvent;',
+      'PlayerDeathEvent': 'import org.bukkit.event.entity.PlayerDeathEvent;',
+      'EntityDamageEvent': 'import org.bukkit.event.entity.EntityDamageEvent;',
+      'EntityDamageByEntityEvent': 'import org.bukkit.event.entity.EntityDamageByEntityEvent;',
+      'BlockBreakEvent': 'import org.bukkit.event.block.BlockBreakEvent;',
+      'BlockPlaceEvent': 'import org.bukkit.event.block.BlockPlaceEvent;',
+      'Command': 'import org.bukkit.command.Command;',
+      'CommandSender': 'import org.bukkit.command.CommandSender;',
+      'CommandExecutor': 'import org.bukkit.command.CommandExecutor;',
+      'TabCompleter': 'import org.bukkit.command.TabCompleter;',
+      'ConsoleCommandSender': 'import org.bukkit.command.ConsoleCommandSender;',
+      'ChatColor': 'import org.bukkit.ChatColor;',
+      'Sound': 'import org.bukkit.Sound;',
+      'Particle': 'import org.bukkit.Particle;',
+      'PotionEffect': 'import org.bukkit.potion.PotionEffect;',
+      'PotionEffectType': 'import org.bukkit.potion.PotionEffectType;',
+      'BukkitRunnable': 'import org.bukkit.scheduler.BukkitRunnable;',
+      'BukkitScheduler': 'import org.bukkit.scheduler.BukkitScheduler;',
+      'BukkitTask': 'import org.bukkit.scheduler.BukkitTask;',
+      'FileConfiguration': 'import org.bukkit.configuration.file.FileConfiguration;',
+      'YamlConfiguration': 'import org.bukkit.configuration.file.YamlConfiguration;',
+      'ConfigurationSection': 'import org.bukkit.configuration.ConfigurationSection;',
+      'Block': 'import org.bukkit.block.Block;',
+      'BlockFace': 'import org.bukkit.block.BlockFace;',
+      'GameMode': 'import org.bukkit.GameMode;',
+      'PluginManager': 'import org.bukkit.plugin.PluginManager;',
+      'Enchantment': 'import org.bukkit.enchantments.Enchantment;',
+      'ItemMeta': 'import org.bukkit.inventory.meta.ItemMeta;',
+      'Vector': 'import org.bukkit.util.Vector;',
+      // Java standard library
+      'ArrayList': 'import java.util.ArrayList;',
+      'List': 'import java.util.List;',
+      'HashMap': 'import java.util.HashMap;',
+      'Map': 'import java.util.Map;',
+      'HashSet': 'import java.util.HashSet;',
+      'Set': 'import java.util.Set;',
+      'UUID': 'import java.util.UUID;',
+      'Random': 'import java.util.Random;',
+      'Arrays': 'import java.util.Arrays;',
+      'Collections': 'import java.util.Collections;',
+      'File': 'import java.io.File;',
+      'IOException': 'import java.io.IOException;',
+      'Collection': 'import java.util.Collection;',
+      'Iterator': 'import java.util.Iterator;',
+      'Objects': 'import java.util.Objects;',
+      'Optional': 'import java.util.Optional;',
+      'Stream': 'import java.util.stream.Stream;',
+      'Collectors': 'import java.util.stream.Collectors;',
+    };
 
-      // Fix: Unbalanced braces
-      if (error.includes('Unbalanced braces')) {
-        const openBraces = (fixedContent.match(/{/g) || []).length;
-        const closeBraces = (fixedContent.match(/}/g) || []).length;
+    // Process each error
+    for (const error of errors) {
+      console.log(`Processing error: ${error}`);
+
+      // Extract file path from error - handle various formats
+      let filePath = '';
+      
+      // Format: "filepath.java:line:col: error: message"
+      const colonMatch = error.match(/^([^\s:]+\.java):\d+/);
+      if (colonMatch) filePath = colonMatch[1];
+      
+      // Format: "Error in filepath.java"
+      const inMatch = error.match(/(?:in|In|IN)\s+([^\s:]+\.java)/);
+      if (!filePath && inMatch) filePath = inMatch[1];
+      
+      // Format: "filepath.java - error"
+      const dashMatch = error.match(/^([^\s-]+\.java)\s*-/);
+      if (!filePath && dashMatch) filePath = dashMatch[1];
+      
+      // Format: just look for any .java file reference
+      const javaMatch = error.match(/(\w+\.java)/);
+      if (!filePath && javaMatch) filePath = javaMatch[1];
+
+      console.log(`Extracted file path: ${filePath}`);
+      
+      const file = filePath ? findFile(filePath) : null;
+      
+      // === ERROR: cannot find symbol ===
+      if (error.includes('cannot find symbol')) {
+        // Extract the symbol name
+        const symbolMatch = error.match(/symbol:\s*(?:class|variable|method)\s+(\w+)/i) ||
+                           error.match(/cannot find symbol[^:]*:\s*(\w+)/i) ||
+                           error.match(/symbol\s+(\w+)/i);
         
-        if (openBraces > closeBraces) {
-          // Add missing closing braces
-          const missing = openBraces - closeBraces;
-          fixedContent = fixedContent.trimEnd() + '\n' + '}'.repeat(missing) + '\n';
-          changes.push(`Added ${missing} missing closing brace(s)`);
-        } else if (closeBraces > openBraces) {
-          // Remove extra closing braces from the end
-          const extra = closeBraces - openBraces;
-          for (let i = 0; i < extra; i++) {
-            const lastBrace = fixedContent.lastIndexOf('}');
-            if (lastBrace !== -1) {
-              fixedContent = fixedContent.substring(0, lastBrace) + fixedContent.substring(lastBrace + 1);
+        if (symbolMatch) {
+          const symbol = symbolMatch[1];
+          console.log(`Missing symbol: ${symbol}`);
+          
+          // Check if it's a known import
+          if (commonImports[symbol]) {
+            if (file) {
+              const fix = getFileFix(file);
+              const newContent = addImport(fix.content, commonImports[symbol]);
+              if (newContent !== fix.content) {
+                fix.content = newContent;
+                fix.changes.push(`Added import: ${commonImports[symbol]}`);
+              }
+            } else {
+              // Add to all Java files as suggestion
+              for (const f of files) {
+                if (f.path.endsWith('.java') && f.content.includes(symbol)) {
+                  const fix = getFileFix(f);
+                  const newContent = addImport(fix.content, commonImports[symbol]);
+                  if (newContent !== fix.content) {
+                    fix.content = newContent;
+                    fix.changes.push(`Added import: ${commonImports[symbol]}`);
+                  }
+                }
+              }
+            }
+          } else {
+            suggestions.push(`Missing symbol '${symbol}' - check if class exists or add required import`);
+          }
+        }
+      }
+
+      // === ERROR: Missing package declaration ===
+      if (error.toLowerCase().includes('missing package') || 
+          error.includes('should be declared in a package')) {
+        if (file) {
+          const fix = getFileFix(file);
+          if (!fix.content.trim().startsWith('package ')) {
+            const javaPath = file.path.replace('src/main/java/', '').replace('.java', '');
+            const packagePath = javaPath.split('/').slice(0, -1).join('.');
+            if (packagePath) {
+              fix.content = `package ${packagePath};\n\n${fix.content}`;
+              fix.changes.push(`Added package declaration: ${packagePath}`);
             }
           }
-          changes.push(`Removed ${extra} extra closing brace(s)`);
         }
       }
 
-      // Fix: No class, interface, or enum declaration found
-      if (error.includes('No class, interface, or enum declaration found')) {
-        const fileName = file.path.split('/').pop()?.replace('.java', '') || 'MyClass';
-        if (!fixedContent.includes('class ') && !fixedContent.includes('interface ') && !fixedContent.includes('enum ')) {
-          // Extract package if exists
-          const packageMatch = fixedContent.match(/package\s+([\w.]+);/);
-          const imports = fixedContent.match(/import\s+[\w.]+;\s*/g) || [];
-          const packageLine = packageMatch ? `package ${packageMatch[1]};\n\n` : '';
-          const importsBlock = imports.join('');
+      // === ERROR: Class name doesn't match file name ===
+      if (error.includes("doesn't match") || error.includes('should be declared in a file')) {
+        const classMatch = error.match(/(?:class|Class)\s+'?(\w+)'?\s+(?:doesn't match|should be)/);
+        const fileMatch = error.match(/file\s+(?:name\s+)?'?(\w+)'?/);
+        
+        if (file && classMatch) {
+          const wrongName = classMatch[1];
+          const correctName = file.path.split('/').pop()?.replace('.java', '') || '';
           
-          // Create a basic class structure
-          fixedContent = `${packageLine}${importsBlock}
-public class ${fileName} {
-    // TODO: Implement your class
+          if (wrongName && correctName && wrongName !== correctName) {
+            const fix = getFileFix(file);
+            fix.content = fix.content.replace(
+              new RegExp(`(public\\s+(?:abstract\\s+)?(?:final\\s+)?(?:class|interface|enum)\\s+)${wrongName}\\b`, 'g'),
+              `$1${correctName}`
+            );
+            fix.changes.push(`Renamed class from '${wrongName}' to '${correctName}'`);
+          }
+        }
+      }
+
+      // === ERROR: Unbalanced braces ===
+      if (error.toLowerCase().includes('unbalanced') || 
+          error.includes('reached end of file while parsing') ||
+          error.includes("'}' expected") ||
+          error.includes("'{' expected")) {
+        if (file) {
+          const fix = getFileFix(file);
+          const openBraces = (fix.content.match(/{/g) || []).length;
+          const closeBraces = (fix.content.match(/}/g) || []).length;
+          
+          if (openBraces > closeBraces) {
+            const missing = openBraces - closeBraces;
+            fix.content = fix.content.trimEnd() + '\n' + '}'.repeat(missing) + '\n';
+            fix.changes.push(`Added ${missing} missing closing brace(s)`);
+          } else if (closeBraces > openBraces) {
+            const extra = closeBraces - openBraces;
+            for (let i = 0; i < extra; i++) {
+              const lastBrace = fix.content.lastIndexOf('}');
+              if (lastBrace !== -1) {
+                fix.content = fix.content.substring(0, lastBrace) + fix.content.substring(lastBrace + 1);
+              }
+            }
+            fix.changes.push(`Removed ${extra} extra closing brace(s)`);
+          }
+        }
+      }
+
+      // === ERROR: No class/interface/enum found ===
+      if (error.includes('No class') || error.includes('class, interface, or enum expected')) {
+        if (file) {
+          const fix = getFileFix(file);
+          if (!fix.content.includes('class ') && !fix.content.includes('interface ') && !fix.content.includes('enum ')) {
+            const fileName = file.path.split('/').pop()?.replace('.java', '') || 'MyClass';
+            const packageMatch = fix.content.match(/package\s+([\w.]+);/);
+            const imports = fix.content.match(/import\s+[\w.*]+;\s*/g) || [];
+            const packageLine = packageMatch ? `package ${packageMatch[1]};\n\n` : '';
+            const importsBlock = imports.join('');
+            
+            fix.content = `${packageLine}${importsBlock}
+public class ${fileName} extends JavaPlugin {
+    @Override
+    public void onEnable() {
+        getLogger().info("${fileName} enabled!");
+    }
+    
+    @Override
+    public void onDisable() {
+        getLogger().info("${fileName} disabled!");
+    }
 }
 `;
-          changes.push(`Created basic class structure for ${fileName}`);
+            fix.changes.push(`Created basic plugin class structure for ${fileName}`);
+          }
         }
       }
 
-      // Fix common syntax issues
-      // Missing semicolons after statements (basic detection)
-      const lines = fixedContent.split('\n');
-      const fixedLines = lines.map((line, idx) => {
-        const trimmed = line.trim();
-        // Skip if empty, comment, or already has proper ending
-        if (!trimmed || 
-            trimmed.startsWith('//') || 
-            trimmed.startsWith('/*') || 
-            trimmed.startsWith('*') ||
-            trimmed.endsWith('{') || 
-            trimmed.endsWith('}') || 
-            trimmed.endsWith(';') ||
-            trimmed.endsWith(',') ||
-            trimmed.startsWith('package ') ||
-            trimmed.startsWith('import ') ||
-            trimmed.startsWith('if') ||
-            trimmed.startsWith('else') ||
-            trimmed.startsWith('for') ||
-            trimmed.startsWith('while') ||
-            trimmed.startsWith('try') ||
-            trimmed.startsWith('catch') ||
-            trimmed.startsWith('finally') ||
-            trimmed.startsWith('@') ||
-            trimmed.startsWith('public ') ||
-            trimmed.startsWith('private ') ||
-            trimmed.startsWith('protected ') ||
-            trimmed.startsWith('class ') ||
-            trimmed.startsWith('interface ') ||
-            trimmed.startsWith('enum ')) {
-          return line;
-        }
-        return line;
-      });
-      fixedContent = fixedLines.join('\n');
-
-      if (changes.length > 0) {
-        // Check if we already have a fix for this file
-        const existingFix = fixes.find(f => f.path === file.path);
-        if (existingFix) {
-          existingFix.content = fixedContent;
-          existingFix.changes.push(...changes);
-        } else {
-          fixes.push({
-            path: file.path,
-            content: fixedContent,
-            changes
-          });
+      // === ERROR: Missing semicolon ===
+      if (error.includes("';' expected") || error.includes('missing semicolon')) {
+        const lineMatch = error.match(/:(\d+):/);
+        if (file && lineMatch) {
+          const lineNum = parseInt(lineMatch[1]) - 1;
+          const fix = getFileFix(file);
+          const lines = fix.content.split('\n');
+          
+          if (lineNum >= 0 && lineNum < lines.length) {
+            const line = lines[lineNum];
+            const trimmed = line.trim();
+            // Only add semicolon if line doesn't end with {, }, ;, or is not a control statement
+            if (!trimmed.endsWith('{') && !trimmed.endsWith('}') && !trimmed.endsWith(';') &&
+                !trimmed.endsWith(',') && !trimmed.startsWith('//') && !trimmed.startsWith('/*') &&
+                !trimmed.startsWith('*') && !trimmed.startsWith('@') &&
+                !/^(if|else|for|while|try|catch|finally|switch|case|default)\b/.test(trimmed)) {
+              lines[lineNum] = line.trimEnd() + ';';
+              fix.content = lines.join('\n');
+              fix.changes.push(`Added missing semicolon at line ${lineNum + 1}`);
+            }
+          }
         }
       }
-    }
 
-    // Generate suggestions for unfixed errors
-    for (const error of errors) {
-      const wasFixed = fixes.some(f => f.changes.length > 0 && error.includes(f.path.split('/').pop() || ''));
-      if (!wasFixed) {
-        if (error.includes('cannot find symbol')) {
-          suggestions.push('Check for missing imports or undefined variables');
-        } else if (error.includes('incompatible types')) {
-          suggestions.push('Verify variable types match expected types');
-        } else if (error.includes('method does not override')) {
-          suggestions.push('Check @Override methods match parent signatures exactly');
-        } else {
-          suggestions.push(`Manual review needed: ${error.substring(0, 100)}...`);
+      // === ERROR: Incompatible types ===
+      if (error.includes('incompatible types')) {
+        suggestions.push('Type mismatch error - verify variable types match expected types. Check return types and method parameters.');
+      }
+
+      // === ERROR: Method does not override ===
+      if (error.includes('method does not override')) {
+        suggestions.push('Override method signature mismatch - ensure @Override methods match parent class signatures exactly (check parameter types and return type).');
+      }
+
+      // === ERROR: Illegal start of expression ===
+      if (error.includes('illegal start of expression')) {
+        suggestions.push('Syntax error - check for misplaced keywords, missing brackets, or invalid statements.');
+      }
+
+      // === ERROR: Unreported exception ===
+      if (error.includes('unreported exception') || error.includes('must be caught')) {
+        const exceptionMatch = error.match(/exception\s+(\w+)/i);
+        if (exceptionMatch) {
+          suggestions.push(`Add try-catch block or 'throws ${exceptionMatch[1]}' to method signature`);
         }
+      }
+
+      // === ERROR: Already defined ===
+      if (error.includes('already defined') || error.includes('duplicate')) {
+        suggestions.push('Variable or method with same name already exists - rename one of them or remove the duplicate.');
+      }
+
+      // === ERROR: Non-static from static context ===
+      if (error.includes('non-static') && error.includes('static context')) {
+        suggestions.push('Cannot access non-static member from static context - create an instance or make the member static.');
       }
     }
 
     // Apply fixes to original files array
     const fixedFiles = files.map(file => {
-      const fix = fixes.find(f => f.path === file.path);
-      if (fix) {
+      const fix = fileFixesMap.get(file.path);
+      if (fix && fix.changes.length > 0) {
         return { path: file.path, content: fix.content };
       }
       return file;
     });
 
-    const allChanges = fixes.flatMap(f => f.changes);
+    const allChanges = Array.from(fileFixesMap.values()).flatMap(f => f.changes);
+    const uniqueSuggestions = [...new Set(suggestions)];
+    
+    console.log(`Applied ${allChanges.length} fixes, ${uniqueSuggestions.length} suggestions`);
     
     return new Response(
       JSON.stringify({
         success: true,
         fixedFiles,
         changes: allChanges,
-        suggestions: [...new Set(suggestions)], // Remove duplicates
+        suggestions: uniqueSuggestions,
         message: allChanges.length > 0 
           ? `Applied ${allChanges.length} fix(es). Attempting rebuild...`
-          : 'No automatic fixes available. Please review errors manually.'
+          : uniqueSuggestions.length > 0
+            ? 'No automatic fixes available, but here are some suggestions.'
+            : 'No automatic fixes available. Please review errors manually.'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
