@@ -257,7 +257,8 @@ export default function Editor() {
           </Button>
           <GitHubCompileButton 
             pluginFiles={pluginFiles} 
-            disabled={pluginFiles.length === 0} 
+            disabled={pluginFiles.length === 0}
+            onFilesUpdate={(files) => setPluginFiles(files)}
           />
         </div>
       </header>

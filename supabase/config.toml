@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.compile-plugin]
 verify_jwt = false
+
+[functions.build-plugin]
+verify_jwt = false
+
+[functions.autofix-plugin]
+verify_jwt = false
