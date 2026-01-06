@@ -36,6 +36,7 @@ import { toast } from "sonner";
 interface GitHubCompileButtonProps {
   pluginFiles: PluginFile[];
   disabled?: boolean;
+  onFilesUpdate?: (files: PluginFile[]) => void;
 }
 
 interface CompilationResult {
@@ -100,7 +101,7 @@ const PAPER_SUPPORTED_VERSIONS: MinecraftVersion[] = [
   "1.16.5", "1.17.1", "1.18.2", "1.19.4", "1.20.4", "1.20.6", "1.21", "1.21.1", "1.21.4"
 ];
 
-export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButtonProps) {
+export function GitHubCompileButton({ pluginFiles, disabled, onFilesUpdate }: GitHubCompileButtonProps) {
   const navigate = useNavigate();
   const { user, loading, profile } = useAuthContext();
 
@@ -126,6 +127,14 @@ export function GitHubCompileButton({ pluginFiles, disabled }: GitHubCompileButt
   const [showBuildErrorDialog, setShowBuildErrorDialog] = useState(false);
   const [isAutoFixing, setIsAutoFixing] = useState(false);
   const [errorsCopied, setErrorsCopied] = useState(false);
+  const [currentFiles, setCurrentFiles] = useState<PluginFile[]>(pluginFiles);
+  const [autoFixChanges, setAutoFixChanges] = useState<string[]>([]);
+  const [showAutoFixResultDialog, setShowAutoFixResultDialog] = useState(false);
+
+  // Keep currentFiles in sync with pluginFiles prop
+  useState(() => {
+    setCurrentFiles(pluginFiles);
+  });
 
   const pluginName = getPluginName(pluginFiles);
 
@@ -699,6 +708,133 @@ Copy this JAR to your Minecraft server's \`plugins\` folder!
       setIsBuilding(false);
     }
   };
+
+  // Auto-fix handler - calls edge function to analyze and fix errors
+  const handleAutoFix = async () => {
+    if (loading || !user) return;
+
+    setIsAutoFixing(true);
+    setShowBuildErrorDialog(false);
+    
+    try {
+      toast.info("Analyzing errors and applying fixes...");
+
+      const { data, error } = await supabase.functions.invoke('autofix-plugin', {
+        body: {
+          files: currentFiles,
+          errors: buildErrors,
+          pluginName,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (!data.success) {
+        toast.error(data.message || "Auto-fix failed");
+        setIsAutoFixing(false);
+        return;
+      }
+
+      // Check if any fixes were applied
+      if (data.changes && data.changes.length > 0) {
+        setAutoFixChanges(data.changes);
+        
+        // Update files with fixes
+        const fixedFiles = data.fixedFiles as PluginFile[];
+        setCurrentFiles(fixedFiles);
+        
+        // Notify parent component of file changes
+        if (onFilesUpdate) {
+          onFilesUpdate(fixedFiles);
+        }
+
+        toast.success(`Applied ${data.changes.length} fix(es)!`);
+        
+        // Show what was fixed
+        setShowAutoFixResultDialog(true);
+
+        // Wait a moment then attempt rebuild
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        toast.info("Rebuilding with fixes...");
+        
+        // Rebuild with fixed files
+        const apiVersion = mcVersion.substring(0, 4);
+        const filesPayload = fixedFiles.map((file: PluginFile) => {
+          if (file.path.endsWith('plugin.yml')) {
+            const updatedContent = file.content.replace(
+              /api-version:\s*['"]?[\d.]+['"]?/,
+              `api-version: '${apiVersion}'`
+            );
+            return { path: file.path, content: updatedContent };
+          }
+          return { path: file.path, content: file.content };
+        });
+
+        const { data: buildData, error: buildError } = await supabase.functions.invoke('build-plugin', {
+          body: {
+            files: filesPayload,
+            pluginName,
+            javaVersion,
+            mcVersion,
+            serverAPI,
+            buildTool,
+          },
+        });
+
+        if (buildError) {
+          throw new Error(buildError.message);
+        }
+
+        if (!buildData.success) {
+          if (buildData.errors && buildData.errors.length > 0) {
+            setBuildErrors(buildData.errors);
+            setShowAutoFixResultDialog(false);
+            setShowBuildErrorDialog(true);
+            toast.error("Build still has errors. Review remaining issues.");
+          } else {
+            toast.error(buildData.message || "Build failed after fixes");
+          }
+        } else if (buildData.jarBase64) {
+          // Success! Download the JAR
+          const binaryString = atob(buildData.jarBase64);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: 'application/java-archive' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = buildData.fileName || `${pluginName}.jar`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+
+          setShowAutoFixResultDialog(false);
+          toast.success(`${pluginName}.jar compiled successfully!`, { duration: 5000 });
+        }
+      } else {
+        // No fixes available
+        toast.warning(data.message || "No automatic fixes available");
+        
+        if (data.suggestions && data.suggestions.length > 0) {
+          // Show suggestions
+          setAutoFixChanges(data.suggestions.map((s: string) => `Suggestion: ${s}`));
+          setShowAutoFixResultDialog(true);
+        }
+      }
+    } catch (err) {
+      console.error("Auto-fix error:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to auto-fix. Please try again.");
+    } finally {
+      setIsAutoFixing(false);
+    }
+  };
+
   const handleCopy = async (text: string) => {
     await navigator.clipboard.writeText(text);
     setCopied(true);
@@ -1479,20 +1615,7 @@ Copy this to your server's \`plugins\` folder!
               <Button
                 size="sm"
                 className="flex-1 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white font-mono border-0"
-                onClick={async () => {
-                  setIsAutoFixing(true);
-                  setShowBuildErrorDialog(false);
-                  
-                  toast.info("Attempting auto-fix and rebuild...");
-                  
-                  // Wait a moment for UI feedback
-                  await new Promise(resolve => setTimeout(resolve, 500));
-                  
-                  // Retry the build - this triggers another compilation attempt
-                  await handleDirectCompile();
-                  
-                  setIsAutoFixing(false);
-                }}
+                onClick={handleAutoFix}
                 disabled={isAutoFixing}
               >
                 {isAutoFixing ? (
@@ -1503,6 +1626,64 @@ Copy this to your server's \`plugins\` folder!
                 Auto-fix
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Auto-fix Result Dialog */}
+      <Dialog open={showAutoFixResultDialog} onOpenChange={setShowAutoFixResultDialog}>
+        <DialogContent className="max-w-lg p-0 overflow-hidden bg-[#1a1a2e] border-[#2a2a4a]">
+          {/* Terminal Header */}
+          <div className="flex items-center justify-between px-4 py-3 bg-[#12121f] border-b border-[#2a2a4a]">
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-[#ff5f56]" />
+                <div className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
+                <div className="w-3 h-3 rounded-full bg-[#27ca40]" />
+              </div>
+              <span className="text-sm text-gray-400 ml-2 font-mono">autofix</span>
+            </div>
+            <div className="flex items-center gap-2 px-2 py-0.5 rounded bg-green-500/20 border border-green-500/40">
+              <Sparkles className="h-3 w-3 text-green-400" />
+              <span className="text-xs font-medium text-green-400">FIXED</span>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="p-4 font-mono text-sm">
+            <div className="flex items-center gap-2 text-green-400 mb-4">
+              <CheckCircle className="h-4 w-4" />
+              <span>Applied {autoFixChanges.length} fix(es)</span>
+            </div>
+
+            {/* Changes List */}
+            <div className="bg-[#12121f] rounded-lg border border-[#2a2a4a] p-4 max-h-48 overflow-y-auto">
+              {autoFixChanges.map((change, index) => (
+                <div key={index} className="flex items-start gap-2 mb-2 last:mb-0">
+                  <span className="text-green-400 text-xs">✓</span>
+                  <p className="text-gray-300 text-xs">{change}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Status */}
+            <div className="flex items-center gap-2 mt-4 text-gray-400 text-xs">
+              {isBuilding ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Rebuilding with fixes...</span>
+                </>
+              ) : (
+                <span>Rebuild complete</span>
+              )}
+            </div>
+
+            <Button
+              className="w-full mt-4 bg-[#2a2a4a] hover:bg-[#3a3a5a] text-white font-mono"
+              onClick={() => setShowAutoFixResultDialog(false)}
+            >
+              Close
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
