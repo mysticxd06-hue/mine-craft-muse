@@ -1,13 +1,29 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Moon, Send, ArrowRight, Sparkles, Layers, Coins, Shield, LogIn, LogOut, User } from "lucide-react";
+import { Moon, Send, ArrowRight, Sparkles, Layers, Coins, Shield, LogIn, LogOut, User, FolderOpen, Globe, Loader2, Plus } from "lucide-react";
 import { useState } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useProjects, Project } from "@/hooks/useProjects";
+import { ProjectCard } from "@/components/ProjectCard";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Index = () => {
   const navigate = useNavigate();
   const { user, profile, signOut, isAdmin, loading } = useAuthContext();
   const [inputValue, setInputValue] = useState("");
+  const { myProjects, communityProjects, isLoading, deleteProject, togglePublic } = useProjects();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,6 +38,36 @@ const Index = () => {
 
   const handleSignOut = async () => {
     await signOut();
+  };
+
+  const handleOpenProject = (project: Project) => {
+    navigate("/editor", { state: { loadProject: project } });
+  };
+
+  const handleDeleteProject = (projectId: string) => {
+    setProjectToDelete(projectId);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!projectToDelete) return;
+    try {
+      await deleteProject(projectToDelete);
+      toast.success("Project deleted");
+    } catch (err) {
+      toast.error("Failed to delete project");
+    }
+    setDeleteDialogOpen(false);
+    setProjectToDelete(null);
+  };
+
+  const handleTogglePublic = async (project: Project) => {
+    try {
+      await togglePublic(project.id, !project.is_public);
+      toast.success(project.is_public ? "Project is now private" : "Project is now public");
+    } catch (err) {
+      toast.error("Failed to update project");
+    }
   };
 
   return (
@@ -95,8 +141,9 @@ const Index = () => {
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 relative z-10">
-        <div className="text-center max-w-3xl mx-auto animate-fade-in-up">
+      <main className="flex-1 flex flex-col px-4 relative z-10">
+        {/* Hero Section */}
+        <div className="text-center max-w-3xl mx-auto animate-fade-in-up py-12">
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-secondary/50 rounded-full border border-border mb-8">
             <Sparkles className="h-4 w-4 text-primary" />
@@ -161,8 +208,8 @@ const Index = () => {
               onClick={() => navigate("/editor")}
               className="flex items-center gap-2 px-4 py-2 bg-secondary/30 hover:bg-secondary/50 border border-border rounded-lg text-muted-foreground hover:text-foreground transition-all"
             >
-              <Layers className="h-4 w-4" />
-              Open Editor
+              <Plus className="h-4 w-4" />
+              New Project
             </button>
             
             {user && (
@@ -173,6 +220,78 @@ const Index = () => {
             )}
           </div>
         </div>
+
+        {/* Your Recent Projects Section */}
+        {user && myProjects.length > 0 && (
+          <section className="max-w-7xl mx-auto w-full py-12">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-secondary/50 flex items-center justify-center">
+                  <FolderOpen className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-display text-foreground">Your Recent Projects</h2>
+                  <p className="text-sm text-muted-foreground">Continue where you left off</p>
+                </div>
+              </div>
+            </div>
+            
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {myProjects.map(project => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    isOwner={true}
+                    onOpen={handleOpenProject}
+                    onDelete={handleDeleteProject}
+                    onTogglePublic={handleTogglePublic}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Community Projects Section */}
+        {communityProjects.length > 0 && (
+          <section className="max-w-7xl mx-auto w-full py-12">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-accent/20 flex items-center justify-center">
+                  <Globe className="h-5 w-5 text-accent" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-display text-foreground">Community Projects</h2>
+                  <p className="text-sm text-muted-foreground">Explore plugins shared by others</p>
+                </div>
+              </div>
+            </div>
+            
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-accent" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {communityProjects.map(project => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    isOwner={project.user_id === user?.id}
+                    onOpen={handleOpenProject}
+                    onDelete={project.user_id === user?.id ? handleDeleteProject : undefined}
+                    onTogglePublic={project.user_id === user?.id ? handleTogglePublic : undefined}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </main>
 
       {/* Footer */}
@@ -189,6 +308,24 @@ const Index = () => {
           </p>
         </div>
       </footer>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The project and all its files will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
