@@ -181,7 +181,281 @@ serve(async (req) => {
       'Collectors': 'import java.util.stream.Collectors;',
     };
 
-    // Process each error
+    // === FIX POM.XML ISSUES FIRST ===
+    const pomFile = files.find(f => f.path.endsWith('pom.xml'));
+    if (pomFile) {
+      const pomFix = getFileFix(pomFile);
+      let pomContent = pomFix.content;
+      
+      // Remove markdown code block wrappers if present
+      if (pomContent.includes('```xml') || pomContent.includes('```')) {
+        pomContent = pomContent.replace(/```xml\s*\n?/gi, '').replace(/```\s*$/gm, '').trim();
+        pomFix.changes.push('Removed markdown code block wrappers from pom.xml');
+      }
+      
+      // Ensure proper XML declaration at the start
+      if (!pomContent.trim().startsWith('<?xml')) {
+        pomContent = `<?xml version="1.0" encoding="UTF-8"?>\n${pomContent}`;
+        pomFix.changes.push('Added XML declaration to pom.xml');
+      }
+      
+      // Check for missing <project> root element
+      if (!pomContent.includes('<project')) {
+        pomContent = `<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.example</groupId>
+    <artifactId>${pluginName.replace(/\s+/g, '')}</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+    <name>${pluginName}</name>
+</project>`;
+        pomFix.changes.push('Created complete pom.xml structure');
+      }
+      
+      // Add missing namespaces to <project>
+      if (pomContent.includes('<project>') && !pomContent.includes('xmlns=')) {
+        pomContent = pomContent.replace(
+          '<project>',
+          `<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">`
+        );
+        pomFix.changes.push('Added Maven namespaces to project element');
+      }
+      
+      // Ensure modelVersion is present
+      if (!pomContent.includes('<modelVersion>')) {
+        const projectMatch = pomContent.match(/<project[^>]*>/);
+        if (projectMatch) {
+          const insertPos = pomContent.indexOf(projectMatch[0]) + projectMatch[0].length;
+          pomContent = pomContent.slice(0, insertPos) + '\n    <modelVersion>4.0.0</modelVersion>' + pomContent.slice(insertPos);
+          pomFix.changes.push('Added modelVersion 4.0.0');
+        }
+      }
+      
+      // Ensure groupId is present
+      if (!pomContent.includes('<groupId>')) {
+        const versionPos = pomContent.indexOf('<modelVersion>');
+        if (versionPos !== -1) {
+          const endModelVersion = pomContent.indexOf('</modelVersion>', versionPos);
+          if (endModelVersion !== -1) {
+            pomContent = pomContent.slice(0, endModelVersion + '</modelVersion>'.length) + 
+              '\n    <groupId>com.example</groupId>' + pomContent.slice(endModelVersion + '</modelVersion>'.length);
+            pomFix.changes.push('Added default groupId: com.example');
+          }
+        }
+      }
+      
+      // Ensure artifactId is present
+      if (!pomContent.includes('<artifactId>')) {
+        const groupIdEnd = pomContent.indexOf('</groupId>');
+        if (groupIdEnd !== -1) {
+          pomContent = pomContent.slice(0, groupIdEnd + '</groupId>'.length) + 
+            `\n    <artifactId>${pluginName.replace(/\s+/g, '')}</artifactId>` + pomContent.slice(groupIdEnd + '</groupId>'.length);
+          pomFix.changes.push(`Added artifactId: ${pluginName.replace(/\s+/g, '')}`);
+        }
+      }
+      
+      // Ensure version is present
+      if (!pomContent.includes('<version>') || (pomContent.match(/<version>/g) || []).length < 1) {
+        const artifactIdEnd = pomContent.indexOf('</artifactId>');
+        if (artifactIdEnd !== -1) {
+          const afterArtifact = pomContent.indexOf('\n', artifactIdEnd);
+          if (afterArtifact !== -1 && !pomContent.slice(artifactIdEnd, artifactIdEnd + 100).includes('<version>')) {
+            pomContent = pomContent.slice(0, afterArtifact) + '\n    <version>1.0.0</version>' + pomContent.slice(afterArtifact);
+            pomFix.changes.push('Added version: 1.0.0');
+          }
+        }
+      }
+      
+      // Ensure packaging is present
+      if (!pomContent.includes('<packaging>')) {
+        const versionEnd = pomContent.match(/<version>[^<]+<\/version>/);
+        if (versionEnd) {
+          const versionEndPos = pomContent.indexOf(versionEnd[0]) + versionEnd[0].length;
+          pomContent = pomContent.slice(0, versionEndPos) + '\n    <packaging>jar</packaging>' + pomContent.slice(versionEndPos);
+          pomFix.changes.push('Added packaging: jar');
+        }
+      }
+      
+      // Check for Spigot repository
+      if (!pomContent.includes('spigot-repo') && !pomContent.includes('spigotmc.org')) {
+        const reposMatch = pomContent.match(/<repositories>/);
+        if (reposMatch) {
+          const reposPos = pomContent.indexOf('<repositories>') + '<repositories>'.length;
+          pomContent = pomContent.slice(0, reposPos) + `
+        <repository>
+            <id>spigot-repo</id>
+            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+        </repository>` + pomContent.slice(reposPos);
+          pomFix.changes.push('Added Spigot Maven repository');
+        } else if (!pomContent.includes('<repositories>')) {
+          // Add repositories section before </project>
+          const projectEnd = pomContent.lastIndexOf('</project>');
+          if (projectEnd !== -1) {
+            pomContent = pomContent.slice(0, projectEnd) + `
+    <repositories>
+        <repository>
+            <id>spigot-repo</id>
+            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+        </repository>
+    </repositories>
+` + pomContent.slice(projectEnd);
+            pomFix.changes.push('Added repositories section with Spigot repository');
+          }
+        }
+      }
+      
+      // Check for Spigot API dependency
+      if (!pomContent.includes('spigot-api') && !pomContent.includes('bukkit')) {
+        const depsMatch = pomContent.match(/<dependencies>/);
+        if (depsMatch) {
+          const depsPos = pomContent.indexOf('<dependencies>') + '<dependencies>'.length;
+          pomContent = pomContent.slice(0, depsPos) + `
+        <dependency>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigot-api</artifactId>
+            <version>1.20.1-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>` + pomContent.slice(depsPos);
+          pomFix.changes.push('Added Spigot API dependency');
+        } else if (!pomContent.includes('<dependencies>')) {
+          const projectEnd = pomContent.lastIndexOf('</project>');
+          if (projectEnd !== -1) {
+            pomContent = pomContent.slice(0, projectEnd) + `
+    <dependencies>
+        <dependency>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigot-api</artifactId>
+            <version>1.20.1-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+` + pomContent.slice(projectEnd);
+            pomFix.changes.push('Added dependencies section with Spigot API');
+          }
+        }
+      }
+      
+      // Check for build plugins (maven-compiler-plugin and maven-shade-plugin)
+      if (!pomContent.includes('maven-compiler-plugin')) {
+        const buildMatch = pomContent.match(/<build>/);
+        if (buildMatch) {
+          if (!pomContent.includes('<plugins>')) {
+            const buildPos = pomContent.indexOf('<build>') + '<build>'.length;
+            pomContent = pomContent.slice(0, buildPos) + `
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                </configuration>
+            </plugin>
+        </plugins>` + pomContent.slice(buildPos);
+            pomFix.changes.push('Added maven-compiler-plugin');
+          }
+        } else if (!pomContent.includes('<build>')) {
+          const projectEnd = pomContent.lastIndexOf('</project>');
+          if (projectEnd !== -1) {
+            pomContent = pomContent.slice(0, projectEnd) + `
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+` + pomContent.slice(projectEnd);
+            pomFix.changes.push('Added build section with maven-compiler-plugin');
+          }
+        }
+      }
+      
+      // Fix common XML syntax issues
+      // Fix unclosed tags (simple cases)
+      const unclosedTags = pomContent.match(/<(\w+)>[^<]*$/gm);
+      if (unclosedTags) {
+        for (const tag of unclosedTags) {
+          const tagName = tag.match(/<(\w+)>/)?.[1];
+          if (tagName && !pomContent.includes(`</${tagName}>`)) {
+            pomContent = pomContent + `</${tagName}>`;
+            pomFix.changes.push(`Closed unclosed <${tagName}> tag`);
+          }
+        }
+      }
+      
+      // Ensure </project> closing tag exists
+      if (!pomContent.includes('</project>')) {
+        pomContent = pomContent.trimEnd() + '\n</project>';
+        pomFix.changes.push('Added missing </project> closing tag');
+      }
+      
+      pomFix.content = pomContent;
+    }
+
+    // === FIX PLUGIN.YML ISSUES ===
+    const pluginYml = files.find(f => f.path.includes('plugin.yml'));
+    if (pluginYml) {
+      const ymlFix = getFileFix(pluginYml);
+      let ymlContent = ymlFix.content;
+      
+      // Ensure name is present
+      if (!ymlContent.includes('name:')) {
+        ymlContent = `name: ${pluginName}\n${ymlContent}`;
+        ymlFix.changes.push('Added plugin name to plugin.yml');
+      }
+      
+      // Ensure version is present
+      if (!ymlContent.includes('version:')) {
+        const nameLineEnd = ymlContent.indexOf('\n');
+        ymlContent = ymlContent.slice(0, nameLineEnd + 1) + 'version: 1.0.0\n' + ymlContent.slice(nameLineEnd + 1);
+        ymlFix.changes.push('Added version to plugin.yml');
+      }
+      
+      // Ensure main class is present
+      if (!ymlContent.includes('main:')) {
+        // Find the main class from Java files
+        let mainClass = 'com.example.' + pluginName.replace(/\s+/g, '');
+        for (const f of files) {
+          if (f.path.endsWith('.java') && f.content.includes('extends JavaPlugin')) {
+            const packageMatch = f.content.match(/package\s+([\w.]+);/);
+            const classMatch = f.content.match(/public\s+class\s+(\w+)\s+extends\s+JavaPlugin/);
+            if (packageMatch && classMatch) {
+              mainClass = `${packageMatch[1]}.${classMatch[1]}`;
+              break;
+            }
+          }
+        }
+        
+        const versionLineEnd = ymlContent.indexOf('\n', ymlContent.indexOf('version:'));
+        if (versionLineEnd !== -1) {
+          ymlContent = ymlContent.slice(0, versionLineEnd + 1) + `main: ${mainClass}\n` + ymlContent.slice(versionLineEnd + 1);
+          ymlFix.changes.push(`Added main class: ${mainClass}`);
+        }
+      }
+      
+      // Ensure api-version is present for modern Spigot
+      if (!ymlContent.includes('api-version:')) {
+        ymlContent = ymlContent.trimEnd() + '\napi-version: 1.20\n';
+        ymlFix.changes.push('Added api-version: 1.20');
+      }
+      
+      ymlFix.content = ymlContent;
+    }
+
+    // Process each error for Java files
     for (const error of errors) {
       console.log(`Processing error: ${error}`);
 
