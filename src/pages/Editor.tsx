@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useChat, Message, getMessageText } from "@/hooks/useChat";
+import { AIModel } from "@/components/ModelSelector";
 import { useProjectHistory, Project } from "@/hooks/useProjectHistory";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -88,7 +89,7 @@ export default function Editor() {
     }
   }, []);
 
-  const handleSendWithCredits = async (content: string, imageBase64?: string) => {
+  const handleSendWithCredits = async (content: string, imageBase64?: string, model?: AIModel) => {
     if (!user) {
       toast({
         title: "Sign in required",
@@ -108,8 +109,8 @@ export default function Editor() {
       return;
     }
 
-    // Send message (credits are deducted server-side)
-    const result = await sendMessage(content, imageBase64);
+    // Send message with selected model (credits are deducted server-side)
+    const result = await sendMessage(content, imageBase64, model);
     
     if (!result.success) {
       if (result.creditError) {

@@ -58,7 +58,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, model: requestedModel } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
@@ -139,13 +139,18 @@ serve(async (req) => {
       });
     }
 
-    // Check if any message contains an image
-    const hasImage = messages.some((m: any) => 
-      Array.isArray(m.content) && m.content.some((c: any) => c.type === 'image_url')
-    );
+    // Allowed models
+    const allowedModels = [
+      "google/gemini-2.5-pro",
+      "google/gemini-2.5-flash", 
+      "google/gemini-2.5-flash-lite",
+      "openai/gpt-5",
+      "openai/gpt-5-mini",
+      "openai/gpt-5-nano"
+    ];
 
-    // Use a vision-capable model if images are present
-    const model = hasImage ? "google/gemini-2.5-flash" : "google/gemini-2.5-flash";
+    // Use requested model if valid, otherwise default to gemini-2.5-flash
+    const model = allowedModels.includes(requestedModel) ? requestedModel : "google/gemini-2.5-flash";
 
     // Retry logic for transient errors
     const MAX_RETRIES = 3;
