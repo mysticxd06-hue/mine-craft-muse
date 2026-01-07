@@ -47,10 +47,11 @@ interface CompilationResult {
 
 type JavaVersion = "8" | "11" | "16" | "17" | "21";
 type MinecraftVersion = 
-  | "1.8.8" | "1.9.4" | "1.10.2" | "1.11.2" | "1.12.2" 
+  | "1.8.9" | "1.9.4" | "1.10.2" | "1.11.2" | "1.12.2" 
   | "1.13.2" | "1.14.4" | "1.15.2" | "1.16.5" | "1.17.1" 
   | "1.18.2" | "1.19.4" | "1.20.4" | "1.20.6" 
-  | "1.21" | "1.21.1" | "1.21.4";
+  | "1.21" | "1.21.1" | "1.21.4" | "1.21.5" | "1.21.6" 
+  | "1.21.7" | "1.21.8" | "1.21.9" | "1.21.10" | "1.21.11";
 type ServerAPI = "spigot" | "paper" | "buildtools";
 type BuildTool = "maven" | "gradle" | "javac";
 
@@ -62,7 +63,7 @@ const BUILD_TOOL_LABELS: Record<BuildTool, { name: string; description: string }
 
 // Java compatibility based on Minecraft version requirements
 const MC_JAVA_COMPATIBILITY: Record<MinecraftVersion, JavaVersion[]> = {
-  "1.8.8": ["8"],
+  "1.8.9": ["8"],
   "1.9.4": ["8"],
   "1.10.2": ["8"],
   "1.11.2": ["8"],
@@ -79,15 +80,22 @@ const MC_JAVA_COMPATIBILITY: Record<MinecraftVersion, JavaVersion[]> = {
   "1.21": ["21"],
   "1.21.1": ["21"],
   "1.21.4": ["21"],
+  "1.21.5": ["21"],
+  "1.21.6": ["21"],
+  "1.21.7": ["21"],
+  "1.21.8": ["21"],
+  "1.21.9": ["21"],
+  "1.21.10": ["21"],
+  "1.21.11": ["21"],
 };
 
 // Versions grouped for UI display
 const MC_VERSION_GROUPS = {
-  "Latest (1.21.x)": ["1.21.4", "1.21.1", "1.21"] as MinecraftVersion[],
+  "Latest (1.21.x)": ["1.21.11", "1.21.10", "1.21.9", "1.21.8", "1.21.7", "1.21.6", "1.21.5", "1.21.4", "1.21.1", "1.21"] as MinecraftVersion[],
   "1.20.x": ["1.20.6", "1.20.4"] as MinecraftVersion[],
   "1.19.x - 1.17.x": ["1.19.4", "1.18.2", "1.17.1"] as MinecraftVersion[],
   "1.16.x - 1.13.x": ["1.16.5", "1.15.2", "1.14.4", "1.13.2"] as MinecraftVersion[],
-  "Legacy (1.12.x and older)": ["1.12.2", "1.11.2", "1.10.2", "1.9.4", "1.8.8"] as MinecraftVersion[],
+  "Legacy (1.12.x and older)": ["1.12.2", "1.11.2", "1.10.2", "1.9.4", "1.8.9"] as MinecraftVersion[],
 };
 
 const SERVER_API_LABELS: Record<ServerAPI, string> = {
@@ -98,7 +106,9 @@ const SERVER_API_LABELS: Record<ServerAPI, string> = {
 
 // Paper API only supports 1.16.5+
 const PAPER_SUPPORTED_VERSIONS: MinecraftVersion[] = [
-  "1.16.5", "1.17.1", "1.18.2", "1.19.4", "1.20.4", "1.20.6", "1.21", "1.21.1", "1.21.4"
+  "1.16.5", "1.17.1", "1.18.2", "1.19.4", "1.20.4", "1.20.6", 
+  "1.21", "1.21.1", "1.21.4", "1.21.5", "1.21.6", "1.21.7", 
+  "1.21.8", "1.21.9", "1.21.10", "1.21.11"
 ];
 
 export function GitHubCompileButton({ pluginFiles, disabled, onFilesUpdate }: GitHubCompileButtonProps) {
