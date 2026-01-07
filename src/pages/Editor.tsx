@@ -12,7 +12,8 @@ import { GitHubCompileButton } from "@/components/GitHubCompileButton";
 import { ProjectHistoryPanel } from "@/components/ProjectHistoryPanel";
 import { parsePluginFiles, hasPluginFiles, PluginFile, exportPluginAsZip, downloadZip, getPluginName } from "@/lib/pluginExport";
 import { Button } from "@/components/ui/button";
-import { Moon, Download, ArrowLeft, FolderTree, FileCode, Save, History, Coins, LogIn, User } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Moon, Download, ArrowLeft, FolderTree, FileCode, Save, History, Coins, LogIn, User, Pencil, Check, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface LocationState {
@@ -38,6 +39,9 @@ export default function Editor() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadedProject, setIsLoadedProject] = useState(false);
   const [lastAutoSave, setLastAutoSave] = useState<number>(0);
+  const [projectName, setProjectName] = useState<string>("");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState("");
 
   // Keep credits in sync with profile
   useEffect(() => {
@@ -63,6 +67,7 @@ export default function Editor() {
       setPluginFiles(state.loadProject.files);
       setCurrentProjectId(state.loadProject.id);
       setIsLoadedProject(true);
+      setProjectName(state.loadProject.name);
       if (state.loadProject.files.length > 0) {
         const pluginYml = state.loadProject.files.find(f => f.path.endsWith("plugin.yml"));
         const mainClass = state.loadProject.files.find(f => f.path.endsWith(".java") && f.content.includes("extends JavaPlugin"));
@@ -273,6 +278,41 @@ export default function Editor() {
     });
   };
 
+  const displayName = projectName || (pluginFiles.length > 0 ? getPluginName(pluginFiles) : "New Plugin");
+
+  const startEditingName = () => {
+    setEditNameValue(displayName);
+    setIsEditingName(true);
+  };
+
+  const cancelEditingName = () => {
+    setIsEditingName(false);
+    setEditNameValue("");
+  };
+
+  const saveProjectName = async () => {
+    if (!editNameValue.trim()) {
+      cancelEditingName();
+      return;
+    }
+    
+    setProjectName(editNameValue.trim());
+    setIsEditingName(false);
+    
+    // If we have a project ID, update it in the database
+    if (currentProjectId && user) {
+      try {
+        await supabase
+          .from('projects')
+          .update({ name: editNameValue.trim() })
+          .eq('id', currentProjectId)
+          .eq('user_id', user.id);
+      } catch (err) {
+        console.error('Error updating project name:', err);
+      }
+    }
+  };
+
   const selectedPluginFile = pluginFiles.find(f => f.path === selectedFile) || null;
 
   return (
@@ -287,9 +327,34 @@ export default function Editor() {
         
         <div className="flex items-center gap-2">
           <Moon className="h-5 w-5 text-primary" />
-          <span className="font-display text-foreground">
-            {pluginFiles.length > 0 ? getPluginName(pluginFiles) : "New Plugin"}
-          </span>
+          {isEditingName ? (
+            <div className="flex items-center gap-1">
+              <Input
+                value={editNameValue}
+                onChange={(e) => setEditNameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveProjectName();
+                  if (e.key === 'Escape') cancelEditingName();
+                }}
+                className="h-7 w-40 text-sm font-display"
+                autoFocus
+              />
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={saveProjectName}>
+                <Check className="h-3.5 w-3.5 text-green-500" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={cancelEditingName}>
+                <X className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            </div>
+          ) : (
+            <button 
+              onClick={startEditingName}
+              className="flex items-center gap-2 font-display text-foreground hover:text-primary transition-colors group"
+            >
+              <span>{displayName}</span>
+              <Pencil className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          )}
         </div>
 
         {/* User Info & Credits */}
