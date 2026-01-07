@@ -1,17 +1,19 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
-import { Moon, Sparkles } from "lucide-react";
+import { ModelSelector, AIModel } from "./ModelSelector";
+import { Moon } from "lucide-react";
 import { Message, getMessageText } from "@/hooks/useChat";
 
 interface EditorChatPanelProps {
   messages: Message[];
-  onSend: (message: string, imageBase64?: string) => void;
+  onSend: (message: string, imageBase64?: string, model?: AIModel) => void;
   isLoading: boolean;
 }
 
 export function EditorChatPanel({ messages, onSend, isLoading }: EditorChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [selectedModel, setSelectedModel] = useState<AIModel>("google/gemini-2.5-flash");
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -30,10 +32,11 @@ export function EditorChatPanel({ messages, onSend, isLoading }: EditorChatPanel
           <h3 className="font-display text-sm text-foreground">Lunar</h3>
           <p className="text-xs text-muted-foreground">AI Plugin Assistant</p>
         </div>
-        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-primary/10 to-accent/10 rounded-full border border-primary/20">
-          <span className="h-1.5 w-1.5 bg-primary rounded-full animate-pulse" />
-          <span className="text-xs text-primary font-medium">Active</span>
-        </div>
+        <ModelSelector 
+          value={selectedModel} 
+          onChange={setSelectedModel} 
+          disabled={isLoading}
+        />
       </div>
 
       {/* Messages */}
@@ -70,7 +73,11 @@ export function EditorChatPanel({ messages, onSend, isLoading }: EditorChatPanel
 
       {/* Input */}
       <div className="shrink-0">
-        <ChatInput onSend={onSend} disabled={isLoading} compact />
+        <ChatInput 
+          onSend={(msg, img) => onSend(msg, img, selectedModel)} 
+          disabled={isLoading} 
+          compact 
+        />
       </div>
     </div>
   );

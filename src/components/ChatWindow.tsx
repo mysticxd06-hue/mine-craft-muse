@@ -1,6 +1,7 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
+import { ModelSelector, AIModel } from "./ModelSelector";
 import { Pickaxe } from "lucide-react";
 
 interface Message {
@@ -10,12 +11,13 @@ interface Message {
 
 interface ChatWindowProps {
   messages: Message[];
-  onSend: (message: string) => void;
+  onSend: (message: string, model: AIModel) => void;
   isLoading: boolean;
 }
 
 export function ChatWindow({ messages, onSend, isLoading }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [selectedModel, setSelectedModel] = useState<AIModel>("google/gemini-2.5-flash");
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -33,9 +35,16 @@ export function ChatWindow({ messages, onSend, isLoading }: ChatWindowProps) {
           <h3 className="font-display font-semibold text-foreground">Plugin Craftsman</h3>
           <p className="text-xs text-muted-foreground">AI-powered Minecraft plugin assistant</p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="h-2 w-2 bg-primary rounded-full animate-pulse" />
-          <span className="text-xs text-muted-foreground">Online</span>
+        <div className="ml-auto flex items-center gap-3">
+          <ModelSelector 
+            value={selectedModel} 
+            onChange={setSelectedModel} 
+            disabled={isLoading}
+          />
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 bg-primary rounded-full animate-pulse" />
+            <span className="text-xs text-muted-foreground">Online</span>
+          </div>
         </div>
       </div>
 
@@ -62,7 +71,7 @@ export function ChatWindow({ messages, onSend, isLoading }: ChatWindowProps) {
         </div>
       </div>
 
-      <ChatInput onSend={onSend} disabled={isLoading} />
+      <ChatInput onSend={(msg) => onSend(msg, selectedModel)} disabled={isLoading} />
     </div>
   );
 }
