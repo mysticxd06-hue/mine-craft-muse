@@ -36,6 +36,8 @@ export default function Editor() {
   const [credits, setCredits] = useState<number>(profile?.credits ?? 0);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadedProject, setIsLoadedProject] = useState(false);
+  const [lastAutoSave, setLastAutoSave] = useState<number>(0);
 
   // Keep credits in sync with profile
   useEffect(() => {
@@ -60,6 +62,7 @@ export default function Editor() {
     if (state?.loadProject) {
       setPluginFiles(state.loadProject.files);
       setCurrentProjectId(state.loadProject.id);
+      setIsLoadedProject(true);
       if (state.loadProject.files.length > 0) {
         const pluginYml = state.loadProject.files.find(f => f.path.endsWith("plugin.yml"));
         const mainClass = state.loadProject.files.find(f => f.path.endsWith(".java") && f.content.includes("extends JavaPlugin"));
@@ -124,7 +127,10 @@ export default function Editor() {
     await refreshCredits();
   };
 
+  // Only parse plugin files from messages if NOT a loaded project
   useEffect(() => {
+    if (isLoadedProject) return; // Don't overwrite loaded project files
+    
     const allFiles: PluginFile[] = [];
     for (const msg of messages) {
       const textContent = getMessageText(msg);
@@ -140,14 +146,44 @@ export default function Editor() {
         }
       }
     }
-    setPluginFiles(allFiles);
+    if (allFiles.length > 0) {
+      setPluginFiles(allFiles);
+    }
 
     if (!selectedFile && allFiles.length > 0) {
       const pluginYml = allFiles.find(f => f.path.endsWith("plugin.yml"));
       const mainClass = allFiles.find(f => f.path.endsWith(".java") && f.content.includes("extends JavaPlugin"));
       setSelectedFile(pluginYml?.path || mainClass?.path || allFiles[0].path);
     }
-  }, [messages, selectedFile]);
+  }, [messages, selectedFile, isLoadedProject]);
+
+  // Auto-save when files change (debounced)
+  useEffect(() => {
+    if (!user || pluginFiles.length === 0 || isSaving) return;
+    
+    const now = Date.now();
+    if (now - lastAutoSave < 5000) return; // Debounce 5 seconds
+    
+    const autoSave = async () => {
+      const pluginName = getPluginName(pluginFiles);
+      try {
+        const saved = await saveToCloud(
+          pluginName,
+          pluginFiles,
+          `A Minecraft plugin with ${pluginFiles.length} files`,
+          false,
+          currentProjectId || undefined
+        );
+        setCurrentProjectId(saved.id);
+        setLastAutoSave(now);
+      } catch (err) {
+        console.error('Auto-save error:', err);
+      }
+    };
+
+    const timer = setTimeout(autoSave, 2000);
+    return () => clearTimeout(timer);
+  }, [pluginFiles, user, currentProjectId, isSaving, lastAutoSave, saveToCloud]);
 
   const handleExport = async () => {
     if (pluginFiles.length === 0) {
