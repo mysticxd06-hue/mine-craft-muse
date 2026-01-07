@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Moon, Send, ArrowRight, Sparkles, Layers, Coins, Shield, LogIn, LogOut, User, FolderOpen, Globe, Loader2, Plus } from "lucide-react";
-import { useState } from "react";
+import { Moon, Send, ArrowRight, Sparkles, Layers, Coins, Shield, LogIn, LogOut, User, FolderOpen, Globe, Loader2, Plus, Upload } from "lucide-react";
+import { useState, useRef } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useProjects, Project } from "@/hooks/useProjects";
 import { ProjectCard } from "@/components/ProjectCard";
 import { toast } from "sonner";
+import { importPluginFromZip, PluginFile } from "@/lib/pluginExport";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +25,8 @@ const Index = () => {
   const { myProjects, communityProjects, isLoading, deleteProject, togglePublic } = useProjects();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +70,52 @@ const Index = () => {
       toast.success(project.is_public ? "Project is now private" : "Project is now public");
     } catch (err) {
       toast.error("Failed to update project");
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.zip')) {
+      toast.error("Please select a .zip file");
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const project = await importPluginFromZip(file);
+      toast.success(`Imported ${project.name} with ${project.files.length} files`);
+      
+      // Navigate to editor with imported files
+      navigate("/editor", { 
+        state: { 
+          loadProject: {
+            id: null, // New project, no ID yet
+            name: project.name,
+            files: project.files,
+            description: `Imported plugin with ${project.files.length} files`,
+            is_public: false,
+            downloads: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            user_id: user?.id || '',
+          }
+        } 
+      });
+    } catch (err) {
+      console.error('Import error:', err);
+      toast.error("Failed to import plugin. Make sure it's a valid .zip file.");
+    } finally {
+      setIsImporting(false);
+      // Reset input so same file can be selected again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -211,6 +260,27 @@ const Index = () => {
               <Plus className="h-4 w-4" />
               New Project
             </button>
+            
+            <button 
+              onClick={handleImportClick}
+              disabled={isImporting}
+              className="flex items-center gap-2 px-4 py-2 bg-secondary/30 hover:bg-secondary/50 border border-border rounded-lg text-muted-foreground hover:text-foreground transition-all disabled:opacity-50"
+            >
+              {isImporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              Import Plugin (.zip)
+            </button>
+            
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".zip"
+              onChange={handleFileImport}
+              className="hidden"
+            />
             
             {user && (
               <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-lg text-primary">
