@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Moon, ArrowLeft, Loader2, Upload, User, Trash2, Save, Mail, Shield } from 'lucide-react';
+import { Moon, ArrowLeft, Loader2, Upload, User, Trash2, Save, Mail, Shield, Key } from 'lucide-react';
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -30,6 +30,7 @@ export default function Settings() {
   const [isUploading, setIsUploading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
+  const [isSendingReset, setIsSendingReset] = useState(false);
 
   const isEmailVerified = user?.email_confirmed_at != null;
 
@@ -188,6 +189,32 @@ export default function Settings() {
     }
   };
 
+  const handlePasswordReset = async () => {
+    if (!user?.email) return;
+
+    setIsSendingReset(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/settings`,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Password Reset Email Sent',
+        description: 'Check your inbox for a link to reset your password.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Failed to Send',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSendingReset(false);
+    }
+  };
+
   const getInitials = () => {
     if (profile?.display_name) {
       return profile.display_name.substring(0, 2).toUpperCase();
@@ -341,6 +368,27 @@ export default function Settings() {
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Password */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h2 className="text-lg font-semibold mb-4">Password</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Send a password reset link to your email to change your password.
+            </p>
+            <Button
+              variant="outline"
+              onClick={handlePasswordReset}
+              disabled={isSendingReset}
+              className="gap-2"
+            >
+              {isSendingReset ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Key className="h-4 w-4" />
+              )}
+              Send Reset Link
+            </Button>
           </div>
 
           {/* Danger Zone */}
