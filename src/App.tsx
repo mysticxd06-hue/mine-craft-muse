@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Editor from "./pages/Editor";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
+import Settings from "./pages/Settings";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import NotFound from "./pages/NotFound";
@@ -34,6 +35,15 @@ const App = () => (
             />
             <Route path="/auth" element={<Auth />} />
             <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/privacy" element={<Privacy />} />
             <Route
               path="/admin"

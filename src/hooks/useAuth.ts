@@ -6,6 +6,7 @@ interface UserProfile {
   id: string;
   email: string;
   display_name: string | null;
+  avatar_url: string | null;
   credits: number;
   role: 'admin' | 'user';
   is_banned?: boolean;
@@ -48,6 +49,7 @@ export function useAuth() {
         id: profileData.id,
         email: profileData.email,
         display_name: profileData.display_name,
+        avatar_url: (profileData as any).avatar_url ?? null,
         credits: creditsData?.credits ?? 0,
         role: (roleData?.role as 'admin' | 'user') ?? 'user',
         is_banned: (profileData as any).is_banned ?? false,

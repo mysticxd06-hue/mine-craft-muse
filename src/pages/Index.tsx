@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Moon, Send, ArrowRight, Sparkles, Layers, Coins, Shield, LogIn, LogOut, User, FolderOpen, Globe, Loader2, Plus, Upload } from "lucide-react";
+import { Moon, Send, ArrowRight, Sparkles, Layers, Coins, Shield, LogIn, LogOut, User, FolderOpen, Globe, Loader2, Plus, Upload, Settings } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useState, useRef } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useProjects, Project } from "@/hooks/useProjects";
@@ -162,14 +163,24 @@ const Index = () => {
                 <span className="text-sm font-medium">{profile?.credits ?? 0}</span>
               </div>
               
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                  <User className="h-4 w-4 text-white" />
-                </div>
+              <button 
+                onClick={() => navigate('/settings')}
+                className="flex items-center gap-2 hover:bg-secondary/50 rounded-lg p-1 transition-colors"
+              >
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={profile?.avatar_url || undefined} alt="Profile" />
+                  <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white text-xs">
+                    {profile?.display_name?.substring(0, 2).toUpperCase() || profile?.email?.substring(0, 2).toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
                 <span className="text-sm text-muted-foreground hidden md:block">
                   {profile?.display_name || profile?.email}
                 </span>
-              </div>
+              </button>
+              
+              <Button variant="ghost" size="sm" onClick={() => navigate('/settings')} className="hidden md:flex">
+                <Settings className="h-4 w-4" />
+              </Button>
               
               <Button variant="ghost" size="sm" onClick={handleSignOut}>
                 <LogOut className="h-4 w-4" />

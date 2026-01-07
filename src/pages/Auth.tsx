@@ -91,8 +91,8 @@ export default function Auth() {
           });
         } else {
           toast({
-            title: 'Account created!',
-            description: 'Welcome to Lunar Sky Studios. You have 10 free credits!',
+            title: 'Verification email sent!',
+            description: 'Please check your inbox and verify your email to complete registration.',
           });
           navigate('/');
         }
@@ -225,7 +225,7 @@ export default function Auth() {
               <div className="flex items-center gap-2 mt-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
                 <Sparkles className="h-4 w-4 text-primary shrink-0" />
                 <p className="text-xs text-muted-foreground">
-                  New accounts receive 10 free AI credits. Max 2 accounts per device.
+                  New accounts receive 10 free AI credits. You'll need to verify your email. Max 2 accounts per device.
                 </p>
               </div>
             )}
