@@ -1,5 +1,9 @@
 project_id = "bicwhoxpuhvfeklbqzqf"
 
+[functions]
+# Allow up to 6MB request body size for large plugins
+max_body_size = "6mb"
+
 [functions.chat]
 verify_jwt = false
 
