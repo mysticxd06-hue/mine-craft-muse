@@ -70,6 +70,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           ban_reason: string | null
           banned_at: string | null
           created_at: string
@@ -80,6 +81,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          avatar_url?: string | null
           ban_reason?: string | null
           banned_at?: string | null
           created_at?: string
@@ -90,6 +92,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          avatar_url?: string | null
           ban_reason?: string | null
           banned_at?: string | null
           created_at?: string
@@ -203,6 +206,7 @@ export type Database = {
         Returns: Json
       }
       check_device_limit: { Args: { p_fingerprint: string }; Returns: number }
+      delete_user_account: { Args: never; Returns: Json }
       get_user_credits: { Args: { _user_id: string }; Returns: number }
       has_role: {
         Args: {
