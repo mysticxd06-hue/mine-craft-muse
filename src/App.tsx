@@ -10,6 +10,7 @@ import Editor from "./pages/Editor";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
 import Settings from "./pages/Settings";
+import Install from "./pages/Install";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import NotFound from "./pages/NotFound";
@@ -44,6 +45,7 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route path="/install" element={<Install />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route
               path="/admin"
