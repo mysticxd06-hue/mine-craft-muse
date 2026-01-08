@@ -58,7 +58,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, model: requestedModel } = await req.json();
+    const { messages } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
@@ -139,18 +139,8 @@ serve(async (req) => {
       });
     }
 
-    // Allowed models
-    const allowedModels = [
-      "google/gemini-2.5-pro",
-      "google/gemini-2.5-flash", 
-      "google/gemini-2.5-flash-lite",
-      "openai/gpt-5",
-      "openai/gpt-5-mini",
-      "openai/gpt-5-nano"
-    ];
-
-    // Use requested model if valid, otherwise default to gemini-2.5-flash
-    const model = allowedModels.includes(requestedModel) ? requestedModel : "google/gemini-2.5-flash";
+    // Use the best free model
+    const model = "google/gemini-2.5-pro";
 
     // Retry logic for transient errors
     const MAX_RETRIES = 3;
