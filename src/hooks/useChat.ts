@@ -128,8 +128,9 @@ export function useChat() {
 
           try {
             const parsed = JSON.parse(jsonStr);
-            const deltaContent = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (deltaContent) updateAssistant(deltaContent);
+            // Handle Gemini format: candidates[0].content.parts[0].text
+            const textContent = parsed.candidates?.[0]?.content?.parts?.[0]?.text as string | undefined;
+            if (textContent) updateAssistant(textContent);
           } catch {
             textBuffer = line + '\n' + textBuffer;
             break;
@@ -148,8 +149,9 @@ export function useChat() {
           if (jsonStr === '[DONE]') continue;
           try {
             const parsed = JSON.parse(jsonStr);
-            const deltaContent = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (deltaContent) updateAssistant(deltaContent);
+            // Handle Gemini format: candidates[0].content.parts[0].text
+            const textContent = parsed.candidates?.[0]?.content?.parts?.[0]?.text as string | undefined;
+            if (textContent) updateAssistant(textContent);
           } catch { /* ignore */ }
         }
       }

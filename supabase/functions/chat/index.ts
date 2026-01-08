@@ -59,13 +59,13 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     // Get authorization header (user access token)
@@ -139,8 +139,54 @@ serve(async (req) => {
       });
     }
 
-    // Use Gemini 3 Flash for fast responses
-    const model = "google/gemini-3-flash-preview";
+    // Use Gemini 2.0 Flash via Google AI API
+    const model = "gemini-2.0-flash";
+
+    // Convert messages to Gemini format
+    const geminiContents = [];
+    
+    // Add system instruction as first user message context
+    geminiContents.push({
+      role: "user",
+      parts: [{ text: SYSTEM_PROMPT }]
+    });
+    geminiContents.push({
+      role: "model", 
+      parts: [{ text: "Understood. I'm ready to help you create Minecraft plugins." }]
+    });
+    
+    // Add conversation messages
+    for (const msg of messages) {
+      const role = msg.role === "assistant" ? "model" : "user";
+      
+      // Handle multimodal content (text + images)
+      if (Array.isArray(msg.content)) {
+        const parts = [];
+        for (const item of msg.content) {
+          if (item.type === "text") {
+            parts.push({ text: item.text });
+          } else if (item.type === "image_url" && item.image_url?.url) {
+            // Extract base64 data from data URL
+            const dataUrl = item.image_url.url;
+            const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
+            if (matches) {
+              parts.push({
+                inline_data: {
+                  mime_type: matches[1],
+                  data: matches[2]
+                }
+              });
+            }
+          }
+        }
+        geminiContents.push({ role, parts });
+      } else {
+        geminiContents.push({
+          role,
+          parts: [{ text: msg.content }]
+        });
+      }
+    }
 
     // Retry logic for transient errors
     const MAX_RETRIES = 3;
@@ -149,21 +195,22 @@ serve(async (req) => {
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: "system", content: SYSTEM_PROMPT },
-              ...messages,
-            ],
-            stream: true,
-          }),
-        });
+        response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              contents: geminiContents,
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 8192,
+              },
+            }),
+          }
+        );
 
         if (response.ok) {
           break; // Success, exit retry loop
