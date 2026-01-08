@@ -139,8 +139,8 @@ serve(async (req) => {
       });
     }
 
-    // Use the best free model
-    const model = "google/gemini-2.5-pro";
+    // Use Gemini 3 Flash for fast responses
+    const model = "google/gemini-3-flash-preview";
 
     // Retry logic for transient errors
     const MAX_RETRIES = 3;
