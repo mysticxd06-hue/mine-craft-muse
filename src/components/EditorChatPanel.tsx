@@ -1,7 +1,7 @@
 import { useRef, useEffect } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
-import { Bot } from "lucide-react";
+import { Moon } from "lucide-react";
 import { Message, getMessageText } from "@/hooks/useChat";
 
 interface EditorChatPanelProps {
@@ -24,10 +24,10 @@ export function EditorChatPanel({ messages, onSend, isLoading }: EditorChatPanel
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border bg-card/50">
         <div className="h-10 w-10 bg-gradient-to-br from-primary/20 to-accent/20 rounded-xl flex items-center justify-center border border-primary/20">
-          <Bot className="h-5 w-5 text-primary" />
+          <Moon className="h-5 w-5 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-display text-sm text-foreground">BukkitGPT</h3>
+          <h3 className="font-display text-sm text-foreground">Lunar</h3>
           <p className="text-xs text-muted-foreground">AI Plugin Assistant</p>
         </div>
         <div className="flex items-center gap-2">
@@ -42,10 +42,10 @@ export function EditorChatPanel({ messages, onSend, isLoading }: EditorChatPanel
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-80 text-center p-6">
               <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 flex items-center justify-center mb-4 animate-float">
-                <Bot className="h-8 w-8 text-primary" />
+                <Moon className="h-8 w-8 text-primary" />
               </div>
               <h4 className="font-display text-lg text-foreground mb-2">
-                Hey, I'm <span className="text-gradient">BukkitGPT</span>
+                Hey, I'm <span className="text-gradient">Lunar</span>
               </h4>
               <p className="text-muted-foreground text-sm max-w-[260px]">
                 Tell me what Minecraft plugin you'd like to create and I'll build it for you.

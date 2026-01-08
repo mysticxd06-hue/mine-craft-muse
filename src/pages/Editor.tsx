@@ -194,7 +194,7 @@ export default function Editor() {
     if (pluginFiles.length === 0) {
       toast({
         title: "No files to export",
-        description: "Ask BukkitGPT to generate a plugin first.",
+        description: "Ask Lunar to generate a plugin first.",
         variant: "destructive",
       });
       return;
@@ -468,8 +468,8 @@ export default function Editor() {
               <p className="text-muted-foreground text-sm max-w-md">
               {pluginFiles.length === 0 
                   ? user 
-                    ? "Start chatting with BukkitGPT to generate your Minecraft plugin."
-                    : "Sign in to start creating plugins with BukkitGPT."
+                    ? "Start chatting with Lunar to generate your Minecraft plugin."
+                    : "Sign in to start creating plugins with Lunar."
                   : "Click on a file in the tree to view its contents."}
               </p>
               
