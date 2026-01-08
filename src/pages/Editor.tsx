@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useChat, Message, getMessageText } from "@/hooks/useChat";
-import { AIModel } from "@/components/ModelSelector";
 import { useProjectHistory, Project } from "@/hooks/useProjectHistory";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -89,7 +88,7 @@ export default function Editor() {
     }
   }, []);
 
-  const handleSendWithCredits = async (content: string, imageBase64?: string, model?: AIModel) => {
+  const handleSendWithCredits = async (content: string, imageBase64?: string) => {
     if (!user) {
       toast({
         title: "Sign in required",
@@ -109,8 +108,8 @@ export default function Editor() {
       return;
     }
 
-    // Send message with selected model (credits are deducted server-side)
-    const result = await sendMessage(content, imageBase64, model);
+    // Send message (credits are deducted server-side)
+    const result = await sendMessage(content, imageBase64);
     
     if (!result.success) {
       if (result.creditError) {
@@ -195,7 +194,7 @@ export default function Editor() {
     if (pluginFiles.length === 0) {
       toast({
         title: "No files to export",
-        description: "Ask Lunar to generate a plugin first.",
+        description: "Ask BukkitGPT to generate a plugin first.",
         variant: "destructive",
       });
       return;
@@ -467,10 +466,10 @@ export default function Editor() {
                 {pluginFiles.length === 0 ? "Ready to Create" : "Select a File"}
               </h3>
               <p className="text-muted-foreground text-sm max-w-md">
-                {pluginFiles.length === 0 
+              {pluginFiles.length === 0 
                   ? user 
-                    ? "Start chatting with Lunar to generate your Minecraft plugin."
-                    : "Sign in to start creating plugins with Lunar."
+                    ? "Start chatting with BukkitGPT to generate your Minecraft plugin."
+                    : "Sign in to start creating plugins with BukkitGPT."
                   : "Click on a file in the tree to view its contents."}
               </p>
               
