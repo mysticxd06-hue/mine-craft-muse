@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { User, Download, ChevronRight, FileCode, FileText, FolderPlus, RefreshCw } from "lucide-react";
-import lunarAvatar from "@/assets/lunar-avatar.png";
+import { User, Download, ChevronRight, FileCode, FileText, FolderPlus, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { hasPluginFiles, parsePluginFiles, exportPluginAsZip, downloadZip, getPluginName, PluginFile } from "@/lib/pluginExport";
 import { toast } from "@/hooks/use-toast";
 import { Message, MessageContent, getMessageText } from "@/hooks/useChat";
+import { PluginProgressChips } from "./PluginProgressChips";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -118,64 +118,63 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
     <div
       className={cn(
         "flex gap-3 p-4 animate-fade-in",
-        isAssistant ? "bg-gradient-to-r from-primary/5 to-transparent" : "bg-transparent"
+        isAssistant ? "bg-card/30" : "bg-transparent"
       )}
     >
       {isAssistant ? (
-        <img 
-          src={lunarAvatar} 
-          alt="Lunar" 
-          className="h-9 w-9 shrink-0 rounded-xl object-cover border border-primary/20"
-        />
+        <div className="h-8 w-8 shrink-0 rounded-md bg-primary/15 border border-primary/30 flex items-center justify-center">
+          <Sparkles className="h-4 w-4 text-primary" />
+        </div>
       ) : (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary border border-border">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-secondary border border-border">
           <User className="h-4 w-4 text-muted-foreground" />
         </div>
       )}
       <div className="flex-1 space-y-2 overflow-hidden min-w-0">
         {imageUrl && (
           <div className="mb-2">
-            <img 
-              src={imageUrl} 
-              alt="Uploaded reference" 
-              className="max-h-32 rounded-lg border border-border"
+            <img
+              src={imageUrl}
+              alt="Uploaded reference"
+              className="max-h-32 rounded-md border border-border"
             />
           </div>
         )}
-        
+
         <div className="prose prose-invert max-w-none">
           {isLoading ? (
             <div className="flex items-center gap-2 py-1">
-              <span className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-              <span className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-              <span className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              <span className="h-1.5 w-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+              <span className="h-1.5 w-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+              <span className="h-1.5 w-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
             </div>
           ) : (
             <>
-              {/* Clean message text */}
               {cleanMessage && (
                 <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
                   {cleanMessage}
                 </div>
               )}
-              
-              {/* Collapsible file sections */}
+
               {hasFiles && (
                 <div className="mt-3 space-y-1">
-                  <FileSection 
-                    title="Created" 
-                    files={fileGroups.created} 
+                  {/* 8 progress chips summarizing the generated plugin */}
+                  <PluginProgressChips files={files} />
+
+                  <FileSection
+                    title="Created"
+                    files={fileGroups.created}
                     icon={FolderPlus}
                   />
-                  <FileSection 
-                    title="Updated" 
-                    files={fileGroups.updated} 
+                  <FileSection
+                    title="Updated"
+                    files={fileGroups.updated}
                     icon={RefreshCw}
                   />
-                  
-                  <Button 
-                    onClick={handleExport} 
-                    size="sm" 
+
+                  <Button
+                    onClick={handleExport}
+                    size="sm"
                     variant="outline"
                     className="mt-3 gap-2"
                   >
