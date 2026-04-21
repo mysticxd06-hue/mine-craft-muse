@@ -128,8 +128,8 @@ export function useChat() {
 
           try {
             const parsed = JSON.parse(jsonStr);
-            // Handle Gemini format: candidates[0].content.parts[0].text
-            const textContent = parsed.candidates?.[0]?.content?.parts?.[0]?.text as string | undefined;
+            // Anthropic SSE: content_block_delta -> delta.text
+            const textContent = parsed.delta?.text as string | undefined;
             if (textContent) updateAssistant(textContent);
           } catch {
             textBuffer = line + '\n' + textBuffer;
