@@ -149,8 +149,7 @@ export function useChat() {
           if (jsonStr === '[DONE]') continue;
           try {
             const parsed = JSON.parse(jsonStr);
-            // Handle Gemini format: candidates[0].content.parts[0].text
-            const textContent = parsed.candidates?.[0]?.content?.parts?.[0]?.text as string | undefined;
+            const textContent = parsed.delta?.text as string | undefined;
             if (textContent) updateAssistant(textContent);
           } catch { /* ignore */ }
         }
