@@ -59,13 +59,13 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY is not configured");
     }
 
     // Get authorization header (user access token)
@@ -139,52 +139,37 @@ serve(async (req) => {
       });
     }
 
-    // Use Gemini 2.0 Flash via Google AI API
-    const model = "gemini-2.0-flash";
+    // Use Claude Sonnet 4.5
+    const model = "claude-sonnet-4-5";
 
-    // Convert messages to Gemini format
-    const geminiContents = [];
-    
-    // Add system instruction as first user message context
-    geminiContents.push({
-      role: "user",
-      parts: [{ text: SYSTEM_PROMPT }]
-    });
-    geminiContents.push({
-      role: "model", 
-      parts: [{ text: "Understood. I'm ready to help you create Minecraft plugins." }]
-    });
-    
-    // Add conversation messages
+    // Convert messages to Anthropic format
+    const anthropicMessages = [];
     for (const msg of messages) {
-      const role = msg.role === "assistant" ? "model" : "user";
-      
-      // Handle multimodal content (text + images)
+      const role = msg.role === "assistant" ? "assistant" : "user";
+
       if (Array.isArray(msg.content)) {
-        const parts = [];
+        const content = [];
         for (const item of msg.content) {
           if (item.type === "text") {
-            parts.push({ text: item.text });
+            content.push({ type: "text", text: item.text });
           } else if (item.type === "image_url" && item.image_url?.url) {
-            // Extract base64 data from data URL
             const dataUrl = item.image_url.url;
             const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
             if (matches) {
-              parts.push({
-                inline_data: {
-                  mime_type: matches[1],
-                  data: matches[2]
-                }
+              content.push({
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: matches[1],
+                  data: matches[2],
+                },
               });
             }
           }
         }
-        geminiContents.push({ role, parts });
+        anthropicMessages.push({ role, content });
       } else {
-        geminiContents.push({
-          role,
-          parts: [{ text: msg.content }]
-        });
+        anthropicMessages.push({ role, content: msg.content });
       }
     }
 
@@ -195,22 +180,21 @@ serve(async (req) => {
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              contents: geminiContents,
-              generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 8192,
-              },
-            }),
-          }
-        );
+        response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model,
+            system: SYSTEM_PROMPT,
+            messages: anthropicMessages,
+            max_tokens: 8192,
+            stream: true,
+          }),
+        });
 
         if (response.ok) {
           break; // Success, exit retry loop
