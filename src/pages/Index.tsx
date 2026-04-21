@@ -121,33 +121,27 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden">
-      {/* Cosmic background */}
+    <div className="min-h-screen flex flex-col relative overflow-hidden bg-background">
+      {/* Subtle ambient backdrop */}
       <div className="fixed inset-0 bg-cosmic pointer-events-none" />
-      <div className="fixed inset-0 bg-stars pointer-events-none opacity-50" />
-      
-      {/* Floating orbs */}
-      <div className="fixed top-20 left-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl animate-float" />
-      <div className="fixed bottom-20 right-20 w-80 h-80 bg-accent/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '-3s' }} />
-      <div className="fixed top-1/2 left-1/2 w-96 h-96 bg-lunar-pink/5 rounded-full blur-3xl animate-pulse-slow" />
-      
+      <div className="fixed inset-0 bg-stars pointer-events-none" />
+
       {/* Navigation */}
-      <nav className="relative z-10 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto w-full">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Moon className="h-7 w-7 text-primary" />
-            <div className="absolute inset-0 blur-md bg-primary/50 animate-pulse-slow" />
+      <nav className="relative z-10 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto w-full border-b border-border/40">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-md bg-primary/15 border border-primary/30 flex items-center justify-center">
+            <Moon className="h-4 w-4 text-primary" />
           </div>
-          <span className="font-display text-xl tracking-wide text-foreground">
+          <span className="font-display text-base text-foreground">
             Lunar Sky Studios
           </span>
         </div>
-        
-        <div className="flex items-center gap-4">
+
+        <div className="flex items-center gap-2">
           {isAdmin && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => navigate('/admin')}
               className="gap-2"
             >
@@ -155,40 +149,40 @@ const Index = () => {
               Admin
             </Button>
           )}
-          
+
           {user ? (
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary/50 rounded-lg border border-border">
-                <Coins className="h-4 w-4 text-yellow-500" />
-                <span className="text-sm font-medium">{profile?.credits ?? 0}</span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-secondary rounded-md border border-border">
+                <Coins className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-medium font-mono">{profile?.credits ?? 0}</span>
               </div>
-              
-              <button 
+
+              <button
                 onClick={() => navigate('/settings')}
-                className="flex items-center gap-2 hover:bg-secondary/50 rounded-lg p-1 transition-colors"
+                className="flex items-center gap-2 hover:bg-secondary rounded-md p-1 transition-colors"
               >
-                <Avatar className="h-8 w-8">
+                <Avatar className="h-7 w-7">
                   <AvatarImage src={profile?.avatar_url || undefined} alt="Profile" />
-                  <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white text-xs">
+                  <AvatarFallback className="bg-primary/20 text-primary text-xs">
                     {profile?.display_name?.substring(0, 2).toUpperCase() || profile?.email?.substring(0, 2).toUpperCase() || 'U'}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-sm text-muted-foreground hidden md:block">
+                <span className="text-xs text-muted-foreground hidden md:block">
                   {profile?.display_name || profile?.email}
                 </span>
               </button>
-              
-              <Button variant="ghost" size="sm" onClick={() => navigate('/settings')} className="hidden md:flex">
+
+              <Button variant="ghost" size="icon" onClick={() => navigate('/settings')} className="hidden md:flex h-8 w-8">
                 <Settings className="h-4 w-4" />
               </Button>
-              
-              <Button variant="ghost" size="sm" onClick={handleSignOut}>
+
+              <Button variant="ghost" size="icon" onClick={handleSignOut} className="h-8 w-8">
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
           ) : (
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => navigate('/auth')}
               className="gap-2"
@@ -203,58 +197,57 @@ const Index = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col px-4 relative z-10">
         {/* Hero Section */}
-        <div className="text-center max-w-3xl mx-auto animate-fade-in-up py-12">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-secondary/50 rounded-full border border-border mb-8">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <span className="text-sm text-muted-foreground">AI-Powered Plugin Generation</span>
+        <div className="text-center max-w-3xl mx-auto animate-fade-in-up py-16">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-secondary rounded-full border border-border mb-8">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+            <span className="text-xs text-muted-foreground font-mono">AI-powered plugin generation</span>
           </div>
-          
-          {/* Greeting */}
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-display text-foreground mb-4 leading-tight">
-            Hey, I'm{" "}
-            <span className="text-gradient">Lunar</span>
+
+          <h1 className="text-5xl md:text-6xl font-display text-foreground mb-4 leading-[1.05] tracking-tight">
+            Build Minecraft plugins
+            <br />
+            <span className="text-gradient">in plain English.</span>
           </h1>
-          
-          <p className="text-xl text-muted-foreground mb-12 max-w-xl mx-auto">
-            Your AI companion for creating Minecraft plugins. 
-            <span className="text-foreground"> Just describe what you want.</span>
+
+          <p className="text-base text-muted-foreground mb-10 max-w-lg mx-auto">
+            Describe your idea. Lunar writes production-ready Bukkit, Spigot, and Paper plugins for you.
           </p>
 
           {/* Input Card */}
           <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto">
-            <div className="bg-card/80 backdrop-blur-sm border border-border rounded-2xl p-5 shadow-2xl card-hover">
+            <div className="bg-card border border-border rounded-lg p-4 shadow-2xl card-hover focus-within:border-primary/50 transition-colors">
               <textarea
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                placeholder={user ? "Describe the plugin you want to create..." : "Sign in to start creating plugins..."}
+                placeholder={user ? "e.g. A plugin that adds a /heal command with cooldown..." : "Sign in to start creating plugins..."}
                 rows={3}
                 disabled={!user}
-                className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none resize-none text-lg disabled:opacity-50"
+                className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none resize-none text-sm disabled:opacity-50"
               />
-              
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg text-sm text-muted-foreground">
-                    <Layers className="h-4 w-4 text-primary" />
-                    Spigot Plugin
+
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 px-2 py-1 bg-secondary rounded-md text-xs text-muted-foreground font-mono">
+                    <Layers className="h-3 w-3 text-primary" />
+                    Spigot / Paper
                   </div>
                 </div>
-                
-                <Button 
-                  type="submit" 
+
+                <Button
+                  type="submit"
                   disabled={!user || !inputValue.trim()}
-                  className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all gap-2 rounded-xl px-6"
+                  size="sm"
+                  className="gap-2"
                 >
                   {user ? (
                     <>
                       Create
-                      <ArrowRight className="h-4 w-4" />
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </>
                   ) : (
                     <>
-                      Sign In to Start
-                      <LogIn className="h-4 w-4" />
+                      Sign in
+                      <LogIn className="h-3.5 w-3.5" />
                     </>
                   )}
                 </Button>
@@ -263,28 +256,28 @@ const Index = () => {
           </form>
 
           {/* Quick Links */}
-          <div className="flex flex-wrap items-center justify-center gap-4 mt-10 text-sm">
-            <button 
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-8 text-sm">
+            <button
               onClick={() => navigate("/editor")}
-              className="flex items-center gap-2 px-4 py-2 bg-secondary/30 hover:bg-secondary/50 border border-border rounded-lg text-muted-foreground hover:text-foreground transition-all"
+              className="flex items-center gap-2 px-3 py-1.5 bg-secondary hover:bg-muted border border-border rounded-md text-xs text-muted-foreground hover:text-foreground transition-all"
             >
-              <Plus className="h-4 w-4" />
-              New Project
+              <Plus className="h-3.5 w-3.5" />
+              New project
             </button>
-            
-            <button 
+
+            <button
               onClick={handleImportClick}
               disabled={isImporting}
-              className="flex items-center gap-2 px-4 py-2 bg-secondary/30 hover:bg-secondary/50 border border-border rounded-lg text-muted-foreground hover:text-foreground transition-all disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-1.5 bg-secondary hover:bg-muted border border-border rounded-md text-xs text-muted-foreground hover:text-foreground transition-all disabled:opacity-50"
             >
               {isImporting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Upload className="h-4 w-4" />
+                <Upload className="h-3.5 w-3.5" />
               )}
-              Import Plugin (.zip)
+              Import .zip
             </button>
-            
+
             <input
               ref={fileInputRef}
               type="file"
@@ -292,11 +285,11 @@ const Index = () => {
               onChange={handleFileImport}
               className="hidden"
             />
-            
+
             {user && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-lg text-primary">
-                <Coins className="h-4 w-4" />
-                <span>{profile?.credits ?? 0} credits available</span>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-md text-xs text-primary font-mono">
+                <Coins className="h-3.5 w-3.5" />
+                <span>{profile?.credits ?? 0} credits</span>
               </div>
             )}
           </div>
@@ -304,25 +297,20 @@ const Index = () => {
 
         {/* Your Recent Projects Section */}
         {user && myProjects.length > 0 && (
-          <section className="max-w-7xl mx-auto w-full py-12">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-secondary/50 flex items-center justify-center">
-                  <FolderOpen className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-display text-foreground">Your Recent Projects</h2>
-                  <p className="text-sm text-muted-foreground">Continue where you left off</p>
-                </div>
+          <section className="max-w-7xl mx-auto w-full py-10">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2.5">
+                <FolderOpen className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-display text-foreground uppercase tracking-wider">Your projects</h2>
               </div>
             </div>
-            
+
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {myProjects.map(project => (
                   <ProjectCard
                     key={project.id}
@@ -340,25 +328,20 @@ const Index = () => {
 
         {/* Community Projects Section */}
         {communityProjects.length > 0 && (
-          <section className="max-w-7xl mx-auto w-full py-12">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-accent/20 flex items-center justify-center">
-                  <Globe className="h-5 w-5 text-accent" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-display text-foreground">Community Projects</h2>
-                  <p className="text-sm text-muted-foreground">Explore plugins shared by others</p>
-                </div>
+          <section className="max-w-7xl mx-auto w-full py-10">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2.5">
+                <Globe className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-display text-foreground uppercase tracking-wider">Community</h2>
               </div>
             </div>
-            
+
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-accent" />
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {communityProjects.map(project => (
                   <ProjectCard
                     key={project.id}

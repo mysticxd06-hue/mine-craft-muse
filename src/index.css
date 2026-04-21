@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,58 +6,57 @@
 
 @layer base {
   :root {
-    /* Lunar Sky Studios Theme - Deep space purple with cosmic accents */
-    --background: 250 30% 5%;
+    /* Clean developer tool — neutral grays + indigo/violet accent */
+    --background: 240 10% 4%;
     --foreground: 0 0% 98%;
 
-    --card: 250 25% 8%;
+    --card: 240 8% 6%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 250 25% 8%;
+    --popover: 240 8% 7%;
     --popover-foreground: 0 0% 98%;
 
-    /* Cosmic Purple Primary */
-    --primary: 270 80% 60%;
+    /* Indigo / Violet primary */
+    --primary: 250 85% 65%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 250 20% 12%;
-    --secondary-foreground: 0 0% 90%;
+    --secondary: 240 6% 10%;
+    --secondary-foreground: 0 0% 92%;
 
-    --muted: 250 15% 16%;
-    --muted-foreground: 250 10% 50%;
+    --muted: 240 5% 12%;
+    --muted-foreground: 240 5% 55%;
 
-    /* Lunar Blue Accent */
-    --accent: 220 90% 60%;
+    --accent: 265 80% 62%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 250 20% 15%;
-    --input: 250 20% 10%;
-    --ring: 270 80% 60%;
+    --border: 240 6% 14%;
+    --input: 240 6% 10%;
+    --ring: 250 85% 65%;
 
-    --radius: 1rem;
+    --radius: 0.5rem;
 
-    /* Extended palette */
-    --lunar-purple: 270 80% 60%;
-    --lunar-blue: 220 90% 60%;
-    --lunar-pink: 320 80% 65%;
-    --star-glow: 45 100% 70%;
-    
+    /* Extended palette (kept names so existing components don't break) */
+    --lunar-purple: 250 85% 65%;
+    --lunar-blue: 230 80% 60%;
+    --lunar-pink: 280 70% 65%;
+    --star-glow: 250 80% 70%;
+
     /* Gradients */
-    --gradient-cosmic: linear-gradient(135deg, hsl(270 80% 60%) 0%, hsl(220 90% 60%) 100%);
-    --gradient-dark: linear-gradient(180deg, hsl(250 30% 8%) 0%, hsl(250 30% 3%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(250 25% 10%) 0%, hsl(250 25% 6%) 100%);
+    --gradient-cosmic: linear-gradient(135deg, hsl(250 85% 65%) 0%, hsl(265 80% 62%) 100%);
+    --gradient-dark: linear-gradient(180deg, hsl(240 10% 5%) 0%, hsl(240 10% 3%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(240 8% 7%) 0%, hsl(240 8% 5%) 100%);
 
-    --sidebar-background: 250 30% 6%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 270 80% 60%;
+    --sidebar-background: 240 10% 5%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 250 85% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 250 20% 12%;
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 250 20% 15%;
-    --sidebar-ring: 270 80% 60%;
+    --sidebar-accent: 240 6% 10%;
+    --sidebar-accent-foreground: 0 0% 92%;
+    --sidebar-border: 240 6% 14%;
+    --sidebar-ring: 250 85% 65%;
   }
 }
 
@@ -68,10 +67,11 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Inter', sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
     min-height: 100vh;
   }
-  
+
   ::selection {
     background: hsl(var(--primary) / 0.3);
     color: hsl(var(--foreground));
@@ -80,14 +80,15 @@
 
 @layer utilities {
   .font-display {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-weight: 600;
+    letter-spacing: -0.02em;
   }
-  
+
   .font-mono {
     font-family: 'JetBrains Mono', monospace;
   }
-  
+
   /* Gradient text */
   .text-gradient {
     background: var(--gradient-cosmic);
@@ -95,62 +96,49 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  
-  /* Cosmic glow effects */
+
   .glow-primary {
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.4), 0 0 40px hsl(var(--primary) / 0.2);
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.2), 0 8px 24px -8px hsl(var(--primary) / 0.4);
   }
-  
+
   .glow-accent {
-    box-shadow: 0 0 20px hsl(var(--accent) / 0.4), 0 0 40px hsl(var(--accent) / 0.2);
+    box-shadow: 0 0 0 1px hsl(var(--accent) / 0.2), 0 8px 24px -8px hsl(var(--accent) / 0.4);
   }
-  
-  /* Star field background */
+
+  /* Subtle dot grid background */
   .bg-stars {
-    background-image: 
-      radial-gradient(2px 2px at 20px 30px, hsl(0 0% 100% / 0.3), transparent),
-      radial-gradient(2px 2px at 40px 70px, hsl(0 0% 100% / 0.2), transparent),
-      radial-gradient(1px 1px at 90px 40px, hsl(0 0% 100% / 0.4), transparent),
-      radial-gradient(2px 2px at 160px 120px, hsl(0 0% 100% / 0.2), transparent),
-      radial-gradient(1px 1px at 200px 80px, hsl(0 0% 100% / 0.3), transparent),
-      radial-gradient(2px 2px at 300px 50px, hsl(0 0% 100% / 0.2), transparent),
-      radial-gradient(1px 1px at 400px 100px, hsl(0 0% 100% / 0.4), transparent),
-      radial-gradient(2px 2px at 500px 30px, hsl(0 0% 100% / 0.2), transparent);
-    background-size: 600px 200px;
+    background-image: radial-gradient(hsl(0 0% 100% / 0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
   }
-  
-  /* Cosmic gradient backdrop */
+
+  /* Soft ambient backdrop */
   .bg-cosmic {
-    background: radial-gradient(ellipse at 50% 0%, hsl(270 60% 20% / 0.3) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 50%, hsl(220 80% 15% / 0.2) 0%, transparent 40%),
-                radial-gradient(ellipse at 20% 80%, hsl(320 60% 15% / 0.2) 0%, transparent 40%);
+    background:
+      radial-gradient(ellipse 60% 50% at 50% 0%, hsl(250 85% 35% / 0.18) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 30% at 80% 100%, hsl(265 80% 35% / 0.12) 0%, transparent 50%);
   }
-  
+
   /* Animations */
   .animate-float {
     animation: float 6s ease-in-out infinite;
   }
-  
   .animate-pulse-slow {
     animation: pulse-slow 4s ease-in-out infinite;
   }
-  
   .animate-fade-in {
-    animation: fade-in 0.6s ease-out forwards;
+    animation: fade-in 0.4s ease-out forwards;
   }
-  
   .animate-fade-in-up {
-    animation: fade-in-up 0.6s ease-out forwards;
+    animation: fade-in-up 0.5s ease-out forwards;
   }
-  
   .animate-slide-in {
-    animation: slide-in 0.5s ease-out forwards;
+    animation: slide-in 0.4s ease-out forwards;
   }
 }
 
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+  50% { transform: translateY(-6px); }
 }
 
 @keyframes pulse-slow {
@@ -164,58 +152,55 @@
 }
 
 @keyframes fade-in-up {
-  from { 
-    opacity: 0; 
-    transform: translateY(20px); 
+  from {
+    opacity: 0;
+    transform: translateY(12px);
   }
-  to { 
-    opacity: 1; 
-    transform: translateY(0); 
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
 @keyframes slide-in {
-  from { 
-    opacity: 0; 
-    transform: translateX(-10px); 
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
   }
-  to { 
-    opacity: 1; 
-    transform: translateX(0); 
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
-/* Scrollbar styling */
+/* Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
-
 ::-webkit-scrollbar-track {
   background: hsl(var(--background));
 }
-
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.2);
-  border-radius: 4px;
+  background: hsl(var(--border));
+  border-radius: 6px;
+  border: 2px solid hsl(var(--background));
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--primary) / 0.4);
+  background: hsl(var(--muted-foreground) / 0.4);
 }
 
-/* Focus styles */
+/* Focus */
 *:focus-visible {
-  outline: 2px solid hsl(var(--primary) / 0.5);
+  outline: 2px solid hsl(var(--primary) / 0.6);
   outline-offset: 2px;
 }
 
-/* Card hover effect */
 .card-hover {
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
-
 .card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 30px -10px hsl(var(--primary) / 0.2);
+  transform: translateY(-1px);
+  border-color: hsl(var(--primary) / 0.4);
+  box-shadow: 0 8px 24px -12px hsl(var(--primary) / 0.25);
 }
