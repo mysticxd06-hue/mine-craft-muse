@@ -100,11 +100,11 @@ export function ChatInput({ onSend, disabled, compact }: ChatInputProps) {
           placeholder={imageBase64 ? "Describe what plugin you want..." : "Ask Lunar anything..."}
           disabled={disabled}
           className={cn(
-            "flex-1 bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 text-sm transition-all",
+            "flex-1 bg-secondary border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm transition-all",
             compact ? "px-3 py-2" : "px-4 py-3"
           )}
         />
-        <Button type="submit" disabled={disabled || (!input.trim() && !imageBase64)} size={compact ? "default" : "lg"} className="bg-gradient-to-r from-primary to-accent hover:opacity-90 rounded-xl">
+        <Button type="submit" disabled={disabled || (!input.trim() && !imageBase64)} size={compact ? "default" : "lg"} className="rounded-md">
           <Send className={compact ? "h-4 w-4" : "h-5 w-5"} />
         </Button>
       </div>

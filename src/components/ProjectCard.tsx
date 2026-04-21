@@ -33,16 +33,13 @@ export function ProjectCard({
   const timeAgo = formatDistanceToNow(new Date(project.updated_at), { addSuffix: true });
 
   return (
-    <Card className="group relative overflow-hidden bg-card/60 backdrop-blur-sm border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5">
-      {/* Gradient overlay on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-      
+    <Card className="group relative overflow-hidden bg-card border-border hover:border-primary/40 transition-all duration-200">
       <div className="relative p-4">
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <Package className="h-5 w-5 text-white" />
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-md bg-primary/15 border border-primary/30 flex items-center justify-center">
+              <Package className="h-4 w-4 text-primary" />
             </div>
             <div>
               <h3 className="font-semibold text-foreground line-clamp-1">{project.name}</h3>
