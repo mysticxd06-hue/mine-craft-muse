@@ -111,11 +111,32 @@
     background-size: 24px 24px;
   }
 
-  /* Soft ambient backdrop */
+  /* Soft ambient backdrop with subtle pulsing gradient */
   .bg-cosmic {
     background:
       radial-gradient(ellipse 60% 50% at 50% 0%, hsl(250 85% 35% / 0.18) 0%, transparent 60%),
       radial-gradient(ellipse 40% 30% at 80% 100%, hsl(265 80% 35% / 0.12) 0%, transparent 50%);
+    animation: cosmic-pulse 8s ease-in-out infinite;
+  }
+
+  /* Hover glow used by buttons/inputs */
+  .hover-glow {
+    transition: box-shadow 0.3s ease, transform 0.2s ease, border-color 0.3s ease;
+  }
+  .hover-glow:hover {
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.35), 0 0 24px -4px hsl(var(--primary) / 0.45);
+    border-color: hsl(var(--primary) / 0.5);
+  }
+
+  .animate-slide-in-left {
+    animation: slide-in-left 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .animate-slide-in-right {
+    animation: slide-in-right 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .animate-fade-in-up-soft {
+    animation: fade-in-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    opacity: 0;
   }
 
   /* Animations */
