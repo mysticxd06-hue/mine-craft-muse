@@ -86,18 +86,21 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
   
   const hasFiles = isAssistant && hasPluginFiles(textContent);
   const files = hasFiles ? parsePluginFiles(textContent) : [];
-  
-  // Extract the message text without file content
-  const cleanMessage = textContent
+
+  // Detect if a code block is currently streaming (open ===FILE: without matching ===ENDFILE===)
+  const isStreamingCode = isAssistant && /===FILE:[^=]+===(?![\s\S]*?===ENDFILE===)/.test(textContent);
+
+  // Strip ALL file blocks AND any in-progress file block (so prose during streaming stays empty)
+  let cleanMessage = textContent
     .replace(/===FILE:.+?===[\s\S]*?===ENDFILE===/g, '')
+    .replace(/===FILE:[\s\S]*$/g, '') // remove unfinished trailing file block
+    .replace(/🔧\s*Used\s+\d+\s+tools?/gi, '') // chips render this
     .trim();
-  
-  // For demo purposes, treat all files as "created" 
-  // In a real app you'd track which are updates vs new
-  const fileGroups: FileGroup = {
-    created: files,
-    updated: []
-  };
+
+  // While code is still streaming, suppress prose entirely (Kodari-style: silent during build)
+  if (isStreamingCode) cleanMessage = '';
+
+  const fileGroups: FileGroup = { created: files, updated: [] };
 
   const handleExport = async () => {
     if (files.length === 0) return;
