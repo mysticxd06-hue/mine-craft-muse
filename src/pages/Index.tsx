@@ -215,7 +215,10 @@ const Index = () => {
 
           {/* Input Card */}
           <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto">
-            <div className="bg-card border border-border rounded-lg p-4 shadow-2xl card-hover focus-within:border-primary/50 transition-colors">
+            <div
+              className="bg-card border border-border rounded-lg p-4 shadow-2xl card-hover hover-glow focus-within:border-primary/50 transition-colors animate-fade-in-up-soft"
+              style={{ animationDelay: '120ms' }}
+            >
               <textarea
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
@@ -226,31 +229,36 @@ const Index = () => {
               />
 
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-secondary rounded-md text-xs text-muted-foreground font-mono">
+                <div
+                  className="flex items-center gap-2 animate-slide-in-left"
+                  style={{ animationDelay: '320ms', opacity: 0 }}
+                >
+                  <div className="flex items-center gap-1.5 px-2 py-1 bg-secondary rounded-md text-xs text-muted-foreground font-mono hover-glow border border-transparent">
                     <Layers className="h-3 w-3 text-primary" />
                     Spigot / Paper
                   </div>
                 </div>
 
-                <Button
-                  type="submit"
-                  disabled={!user || !inputValue.trim()}
-                  size="sm"
-                  className="gap-2"
-                >
-                  {user ? (
-                    <>
-                      Create
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </>
-                  ) : (
-                    <>
-                      Sign in
-                      <LogIn className="h-3.5 w-3.5" />
-                    </>
-                  )}
-                </Button>
+                <div className="animate-slide-in-right" style={{ animationDelay: '320ms', opacity: 0 }}>
+                  <Button
+                    type="submit"
+                    disabled={!user || !inputValue.trim()}
+                    size="sm"
+                    className="gap-2 hover-glow"
+                  >
+                    {user ? (
+                      <>
+                        Create
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </>
+                    ) : (
+                      <>
+                        Sign in
+                        <LogIn className="h-3.5 w-3.5" />
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </form>
@@ -259,7 +267,8 @@ const Index = () => {
           <div className="flex flex-wrap items-center justify-center gap-2 mt-8 text-sm">
             <button
               onClick={() => navigate("/editor")}
-              className="flex items-center gap-2 px-3 py-1.5 bg-secondary hover:bg-muted border border-border rounded-md text-xs text-muted-foreground hover:text-foreground transition-all"
+              className="flex items-center gap-2 px-3 py-1.5 bg-secondary hover:bg-muted border border-border rounded-md text-xs text-muted-foreground hover:text-foreground transition-all hover-glow animate-fade-in-up-soft"
+              style={{ animationDelay: '500ms' }}
             >
               <Plus className="h-3.5 w-3.5" />
               New project
@@ -268,7 +277,8 @@ const Index = () => {
             <button
               onClick={handleImportClick}
               disabled={isImporting}
-              className="flex items-center gap-2 px-3 py-1.5 bg-secondary hover:bg-muted border border-border rounded-md text-xs text-muted-foreground hover:text-foreground transition-all disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-1.5 bg-secondary hover:bg-muted border border-border rounded-md text-xs text-muted-foreground hover:text-foreground transition-all disabled:opacity-50 hover-glow animate-fade-in-up-soft"
+              style={{ animationDelay: '620ms' }}
             >
               {isImporting ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -287,7 +297,10 @@ const Index = () => {
             />
 
             {user && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-md text-xs text-primary font-mono">
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-md text-xs text-primary font-mono hover-glow animate-fade-in-up-soft"
+                style={{ animationDelay: '740ms' }}
+              >
                 <Coins className="h-3.5 w-3.5" />
                 <span>{profile?.credits ?? 0} credits</span>
               </div>
