@@ -159,31 +159,20 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
                 </div>
               )}
 
-              {hasFiles && (
-                <div className="mt-3 space-y-1">
-                  {/* 8 progress chips summarizing the generated plugin */}
-                  <PluginProgressChips files={files} />
+              {(hasFiles || isStreamingCode) && (
+                <div className="mt-2 space-y-1">
+                  <PluginProgressChips files={files} isStreaming={isStreamingCode} />
 
-                  <FileSection
-                    title="Created"
-                    files={fileGroups.created}
-                    icon={FolderPlus}
-                  />
-                  <FileSection
-                    title="Updated"
-                    files={fileGroups.updated}
-                    icon={RefreshCw}
-                  />
-
-                  <Button
-                    onClick={handleExport}
-                    size="sm"
-                    variant="outline"
-                    className="mt-3 gap-2"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download Plugin
-                  </Button>
+                  {hasFiles && !isStreamingCode && (
+                    <>
+                      <FileSection title="Created" files={fileGroups.created} icon={FolderPlus} />
+                      <FileSection title="Updated" files={fileGroups.updated} icon={RefreshCw} />
+                      <Button onClick={handleExport} size="sm" variant="outline" className="mt-3 gap-2">
+                        <Download className="h-4 w-4" />
+                        Download Plugin
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
             </>
