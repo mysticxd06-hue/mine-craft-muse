@@ -389,8 +389,14 @@ serve(async (req) => {
       );
     }
 
-    // Return the JAR as base64
-    const base64Jar = btoa(String.fromCharCode(...result.jarData!));
+    // Return the JAR as base64 (chunked to avoid stack overflow on large arrays)
+    const bytes = result.jarData!;
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
+    }
+    const base64Jar = btoa(binary);
     
     return new Response(
       JSON.stringify({
