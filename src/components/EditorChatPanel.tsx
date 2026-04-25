@@ -1,6 +1,7 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
+import { ModelSelector, AIModel, getSelectedModel, setSelectedModel } from "./ModelSelector";
 import { Moon } from "lucide-react";
 import { Message, getMessageText } from "@/hooks/useChat";
 
@@ -12,6 +13,12 @@ interface EditorChatPanelProps {
 
 export function EditorChatPanel({ messages, onSend, isLoading }: EditorChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [model, setModel] = useState<AIModel>(getSelectedModel());
+
+  const handleModelChange = (m: AIModel) => {
+    setModel(m);
+    setSelectedModel(m);
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -36,7 +43,11 @@ export function EditorChatPanel({ messages, onSend, isLoading }: EditorChatPanel
         </div>
       </div>
 
-      {/* Messages */}
+      {/* Model selector */}
+      <div className="px-4 py-2 border-b border-border bg-card/20 flex items-center justify-between">
+        <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">Model</span>
+        <ModelSelector value={model} onChange={handleModelChange} compact />
+      </div>
       <div className="flex-1 overflow-y-auto" ref={scrollRef}>
         <div className="divide-y divide-border/40">
           {messages.length === 0 ? (
