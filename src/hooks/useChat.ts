@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getSelectedModel } from '@/components/ModelSelector';
 
 export interface Message {
   role: 'user' | 'assistant';
@@ -77,7 +78,7 @@ export function useChat() {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ messages: [...messages, userMessage] }),
+        body: JSON.stringify({ messages: [...messages, userMessage], model: getSelectedModel() }),
       });
 
       if (!resp.ok) {
@@ -128,8 +129,9 @@ export function useChat() {
 
           try {
             const parsed = JSON.parse(jsonStr);
-            // Anthropic SSE: content_block_delta -> delta.text
-            const textContent = parsed.delta?.text as string | undefined;
+            // Anthropic SSE: delta.text | OpenAI/DeepSeek SSE: choices[0].delta.content
+            const textContent = (parsed.delta?.text as string | undefined)
+              ?? (parsed.choices?.[0]?.delta?.content as string | undefined);
             if (textContent) updateAssistant(textContent);
           } catch {
             textBuffer = line + '\n' + textBuffer;
@@ -149,7 +151,8 @@ export function useChat() {
           if (jsonStr === '[DONE]') continue;
           try {
             const parsed = JSON.parse(jsonStr);
-            const textContent = parsed.delta?.text as string | undefined;
+            const textContent = (parsed.delta?.text as string | undefined)
+              ?? (parsed.choices?.[0]?.delta?.content as string | undefined);
             if (textContent) updateAssistant(textContent);
           } catch { /* ignore */ }
         }

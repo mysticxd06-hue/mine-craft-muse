@@ -59,13 +59,19 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, model: selectedModel } = await req.json();
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!ANTHROPIC_API_KEY) {
+    const useDeepSeek = selectedModel === "deepseek";
+
+    if (useDeepSeek && !DEEPSEEK_API_KEY) {
+      throw new Error("DEEPSEEK_API_KEY is not configured");
+    }
+    if (!useDeepSeek && !ANTHROPIC_API_KEY) {
       throw new Error("ANTHROPIC_API_KEY is not configured");
     }
 
@@ -143,21 +149,24 @@ serve(async (req) => {
     // Use Claude Sonnet 4.5
     const model = "claude-sonnet-4-5";
 
-    // Convert messages to Anthropic format
-    const anthropicMessages = [];
+    // Convert messages: Anthropic uses content blocks; DeepSeek uses OpenAI-style messages
+    const anthropicMessages: any[] = [];
+    const openaiMessages: any[] = [];
     for (const msg of messages) {
       const role = msg.role === "assistant" ? "assistant" : "user";
 
       if (Array.isArray(msg.content)) {
-        const content = [];
+        const anthropicContent: any[] = [];
+        const textParts: string[] = [];
         for (const item of msg.content) {
           if (item.type === "text") {
-            content.push({ type: "text", text: item.text });
+            anthropicContent.push({ type: "text", text: item.text });
+            textParts.push(item.text);
           } else if (item.type === "image_url" && item.image_url?.url) {
             const dataUrl = item.image_url.url;
             const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
             if (matches) {
-              content.push({
+              anthropicContent.push({
                 type: "image",
                 source: {
                   type: "base64",
@@ -168,9 +177,12 @@ serve(async (req) => {
             }
           }
         }
-        anthropicMessages.push({ role, content });
+        anthropicMessages.push({ role, content: anthropicContent });
+        // DeepSeek (text-only fallback)
+        openaiMessages.push({ role, content: textParts.join("\n") });
       } else {
         anthropicMessages.push({ role, content: msg.content });
+        openaiMessages.push({ role, content: msg.content });
       }
     }
 
@@ -181,21 +193,40 @@ serve(async (req) => {
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        response = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": ANTHROPIC_API_KEY,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model,
-            system: SYSTEM_PROMPT,
-            messages: anthropicMessages,
-            max_tokens: 8192,
-            stream: true,
-          }),
-        });
+        if (useDeepSeek) {
+          response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+            },
+            body: JSON.stringify({
+              model: "deepseek-chat",
+              messages: [
+                { role: "system", content: SYSTEM_PROMPT },
+                ...openaiMessages,
+              ],
+              max_tokens: 8192,
+              stream: true,
+            }),
+          });
+        } else {
+          response = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": ANTHROPIC_API_KEY!,
+              "anthropic-version": "2023-06-01",
+            },
+            body: JSON.stringify({
+              model,
+              system: SYSTEM_PROMPT,
+              messages: anthropicMessages,
+              max_tokens: 8192,
+              stream: true,
+            }),
+          });
+        }
 
         if (response.ok) {
           break; // Success, exit retry loop
