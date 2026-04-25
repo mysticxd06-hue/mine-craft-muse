@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getSelectedModel } from '@/components/ModelSelector';
 
 export interface Message {
   role: 'user' | 'assistant';
@@ -77,7 +78,7 @@ export function useChat() {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ messages: [...messages, userMessage] }),
+        body: JSON.stringify({ messages: [...messages, userMessage], model: getSelectedModel() }),
       });
 
       if (!resp.ok) {
